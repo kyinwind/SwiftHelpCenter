@@ -10,6 +10,7 @@
 "SHCHelpCenter.unread" = "未读";
 "SHCHelpCenter.noVersionHistory" = "暂无版本历史";
 "SHCHelpCenter.noVersionHistoryMessage" = "配置版本记录后会显示在这里。";
+"SHCHelpCenter.updateApp" = "软件升级";
 "SHCHelpCenter.openSupport" = "打开技术支持";
 "SHCHelpCenter.markAllRead" = "标记为已读";
 "FeedbackView.title" = "反馈意见";

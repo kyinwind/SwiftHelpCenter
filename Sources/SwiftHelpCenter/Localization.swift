@@ -28,6 +28,7 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterUnread = "SHCHelpCenter.unread"
     public static let helpCenterNoVersionHistory = "SHCHelpCenter.noVersionHistory"
     public static let helpCenterNoVersionHistoryMessage = "SHCHelpCenter.noVersionHistoryMessage"
+    public static let helpCenterUpdateApp = "SHCHelpCenter.updateApp"
     public static let helpCenterOpenSupport = "SHCHelpCenter.openSupport"
     public static let helpCenterMarkAllRead = "SHCHelpCenter.markAllRead"
 

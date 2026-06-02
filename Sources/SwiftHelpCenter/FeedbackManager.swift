@@ -88,37 +88,6 @@ public struct FeedbackPayload {
     }
 }
 
-// MARK: - AppStoreHelper
-
-public struct AppStoreHelper {
-    /// 打开 App Store 评分页面
-    public static func rateApp(appleID: String) {
-        guard !appleID.isEmpty else { return }
-
-        #if os(macOS)
-        guard let appStoreURL = URL(string: "macappstore://apps.apple.com/app/id\(appleID)?action=write-review"),
-              let webURL = URL(string: "https://apps.apple.com/app/id\(appleID)?action=write-review") else {
-            return
-        }
-
-        if !NSWorkspace.shared.open(appStoreURL) {
-            NSWorkspace.shared.open(webURL)
-        }
-        #elseif os(iOS)
-        guard let appStoreURL = URL(string: "itms-apps://apps.apple.com/app/id\(appleID)?action=write-review"),
-              let webURL = URL(string: "https://apps.apple.com/app/id\(appleID)?action=write-review") else {
-            return
-        }
-
-        UIApplication.shared.open(appStoreURL, options: [:]) { success in
-            if !success {
-                UIApplication.shared.open(webURL, options: [:])
-            }
-        }
-        #endif
-    }
-}
-
 // MARK: - System Info
 
 public struct SystemInfoProvider {

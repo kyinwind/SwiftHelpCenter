@@ -144,6 +144,39 @@ func versionHistoryInvalidDate() {
     #expect(item == nil)
 }
 
+@Test("HelpCenter compares semantic app versions")
+func appVersionComparison() {
+    #expect(SHCHelpCenterManager.isVersion("1.8.2", newerThan: "1.8.1") == true)
+    #expect(SHCHelpCenterManager.isVersion("1.8.10", newerThan: "1.8.2") == true)
+    #expect(SHCHelpCenterManager.isVersion("v1.8", newerThan: "1.8.0") == false)
+    #expect(SHCHelpCenterManager.isVersion("1.8.0", newerThan: "1.8.1") == false)
+}
+
+@Test("AppStoreHelper parses lookup version info")
+func appStoreLookupParsing() throws {
+    let json = """
+    {
+      "resultCount": 1,
+      "results": [
+        {
+          "trackId": 6448427701,
+          "version": "1.8.2",
+          "trackViewUrl": "https://apps.apple.com/app/id6448427701",
+          "releaseNotes": "Bug fixes",
+          "currentVersionReleaseDate": "2026-02-01T01:00:00Z"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let info = try #require(try AppStoreHelper.parseVersionInfo(json))
+
+    #expect(info.appleID == "6448427701")
+    #expect(info.version == "1.8.2")
+    #expect(info.trackViewURL?.absoluteString == "https://apps.apple.com/app/id6448427701")
+    #expect(info.releaseNotes == "Bug fixes")
+}
+
 // MARK: - Localization: SHCLocalization
 
 @Test("Localization returns key as fallback for missing strings")

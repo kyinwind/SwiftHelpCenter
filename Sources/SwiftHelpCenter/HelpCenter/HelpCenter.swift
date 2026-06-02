@@ -174,10 +174,13 @@ public final class SHCHelpCenterManager {
     public private(set) var supportURL: URL?
     public private(set) var accentColor: Color = SHCTheme.shared.colors.accent
     public private(set) var unreadColor: Color = SHCTheme.shared.colors.danger
+    public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
+    public private(set) var isCheckingAppStoreUpdate = false
 
     private var defaults: UserDefaults = .standard
     private var storageKey = "SwiftHelpCenter.SHCHelpCenter.lastViewedPublishedAt"
     private var isConfigured = false
+    private var checkedAppStoreAppleID: String?
 
     public init() {}
 
@@ -231,6 +234,62 @@ public final class SHCHelpCenterManager {
         items.contains { isUnread($0) }
     }
 
+    public var hasAppStoreUpdateAvailable: Bool {
+        guard let appStoreVersionInfo else { return false }
+        return Self.isVersion(
+            appStoreVersionInfo.version,
+            newerThan: Self.currentAppVersion()
+        )
+    }
+
+    public func checkForAppStoreUpdateIfNeeded(
+        appleID: String? = nil,
+        countryCode: String? = nil
+    ) async {
+        let resolvedAppleID = appleID ?? FeedbackManager.shared.config?.appleID
+        guard let resolvedAppleID, !resolvedAppleID.isEmpty else { return }
+        guard checkedAppStoreAppleID != resolvedAppleID else { return }
+
+        checkedAppStoreAppleID = resolvedAppleID
+        await checkForAppStoreUpdate(appleID: resolvedAppleID, countryCode: countryCode)
+    }
+
+    public func checkForAppStoreUpdate(
+        appleID: String,
+        countryCode: String? = nil
+    ) async {
+        guard !appleID.isEmpty else { return }
+
+        isCheckingAppStoreUpdate = true
+        defer { isCheckingAppStoreUpdate = false }
+
+        do {
+            appStoreVersionInfo = try await AppStoreHelper.fetchVersionInfo(
+                appleID: appleID,
+                countryCode: countryCode
+            )
+        } catch {
+            appStoreVersionInfo = nil
+        }
+    }
+
+    public func openAppStoreUpdatePage(appleID: String? = nil) {
+        let resolvedAppleID = appleID
+            ?? appStoreVersionInfo?.appleID
+            ?? FeedbackManager.shared.config?.appleID
+        guard let resolvedAppleID, !resolvedAppleID.isEmpty else { return }
+
+        AppStoreHelper.openAppStorePage(appleID: resolvedAppleID)
+    }
+
+    public nonisolated static func currentAppVersion(bundle: Bundle = .main) -> String {
+        bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    public nonisolated static func isVersion(_ candidate: String, newerThan current: String) -> Bool {
+        compareVersions(candidate, current) == .orderedDescending
+    }
+
     public func isUnread(_ item: SHCVersionHistoryItem) -> Bool {
         item.publishedAt > lastViewedPublishedAt
     }
@@ -254,6 +313,28 @@ public final class SHCHelpCenterManager {
     private func saveLastViewedPublishedAt(_ date: Date) {
         lastViewedPublishedAt = date
         defaults.set(date, forKey: storageKey)
+    }
+
+    private nonisolated static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        let left = versionComponents(lhs)
+        let right = versionComponents(rhs)
+        let maxCount = max(left.count, right.count)
+
+        for index in 0..<maxCount {
+            let leftValue = index < left.count ? left[index] : 0
+            let rightValue = index < right.count ? right[index] : 0
+
+            if leftValue > rightValue { return .orderedDescending }
+            if leftValue < rightValue { return .orderedAscending }
+        }
+
+        return .orderedSame
+    }
+
+    private nonisolated static func versionComponents(_ version: String) -> [Int] {
+        version
+            .split { !$0.isNumber }
+            .compactMap { Int($0) }
     }
 
     private static func mergedQuickLinks(
@@ -580,6 +661,9 @@ public struct SHCVersionHistoryListView: View {
                 faqSection
             }
         }
+        .task {
+            await manager.checkForAppStoreUpdateIfNeeded()
+        }
     }
 
     @ViewBuilder
@@ -674,6 +758,17 @@ public struct SHCVersionHistoryListView: View {
 
     private var headerActions: some View {
         HStack(spacing: SHCTheme.shared.spacing.sm) {
+            if manager.hasAppStoreUpdateAvailable {
+                SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
+                    manager.openAppStoreUpdatePage()
+                }) {
+                    Label(packageL(SwiftHelpCenterL10n.helpCenterUpdateApp), systemImage: "arrow.down.circle")
+                }
+                #if os(iOS)
+                .frame(maxWidth: .infinity)
+                #endif
+            }
+
             if let supportURL = manager.supportURL {
                 SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
                     openURL(supportURL)

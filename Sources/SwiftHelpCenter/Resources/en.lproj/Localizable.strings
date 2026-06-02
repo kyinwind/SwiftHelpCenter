@@ -10,6 +10,7 @@
 "SHCHelpCenter.unread" = "Unread";
 "SHCHelpCenter.noVersionHistory" = "No version history yet";
 "SHCHelpCenter.noVersionHistoryMessage" = "Configured version records will appear here.";
+"SHCHelpCenter.updateApp" = "Update App";
 "SHCHelpCenter.openSupport" = "Open Support";
 "SHCHelpCenter.markAllRead" = "Mark as Read";
 "FeedbackView.title" = "Feedback";
