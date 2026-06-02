@@ -63,6 +63,14 @@ SHCHelpButton()
 SHCHelpButton(size: .large)
 ```
 
+在 macOS 上，`SHCHelpButton()` 默认打开独立帮助中心窗口；在 iOS 上，默认以 sheet 展示帮助中心。
+
+如果你的 iOS 页面已经在 `NavigationStack` 里，也可以使用导航入口组件：
+
+```swift
+SHCHelpNavigationLink(title: "帮助中心")
+```
+
 **3. 打开窗口（macOS）**
 
 ```swift
@@ -335,7 +343,14 @@ ReviewPromptManager.shared.needShowPopup(type: "AppLogin")
 ### 内置 UI
 
 `checkReviewPrompt` 函数会在需要弹窗时发送 `Notification.Name.openReviewPromptWindow` 通知。
-宿主 App 需要监听此通知并展示 `PreviewPromptView`：
+推荐在宿主 App 根视图挂载内置 sheet 监听器：
+
+```swift
+ContentView()
+    .shcReviewPromptSheet()
+```
+
+如果需要自定义展示方式，也可以自行监听通知并展示 `ReviewPromptView`：
 
 ```swift
 NotificationCenter.default.addObserver(
@@ -343,11 +358,11 @@ NotificationCenter.default.addObserver(
     object: nil,
     queue: .main
 ) { _ in
-    // 打开窗口，内容使用 PreviewPromptView()
+    // 打开窗口，内容使用 ReviewPromptView()
 }
 ```
 
-`PreviewPromptView` 支持四个按钮：
+`ReviewPromptView` 支持四个按钮：
 - **不再提醒** — 永久静音
 - **稍后再说** — 阈值增加（点击+30，天数+3）
 - **去设置** — 触发 `onOpenSettings` 回调

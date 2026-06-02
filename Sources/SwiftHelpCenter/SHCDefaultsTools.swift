@@ -1,5 +1,5 @@
 //
-//  DefaultsTools.swift
+//  SHCDefaultsTools.swift
 //
 //
 //  Created by yangxuehui on 2026/2/6.
@@ -8,7 +8,7 @@
 import Foundation
 
 /// UserDefaults 统一访问工具
-public struct DefaultsTools: @unchecked Sendable {
+public struct SHCDefaultsTools: @unchecked Sendable {
     // MARK: - App Group ID
     nonisolated(unsafe) public static var appGroupID = "group.com.michaeldev"
 
@@ -20,24 +20,24 @@ public struct DefaultsTools: @unchecked Sendable {
         self.ud = userDefaults
     }
     
-    //在项目 app 启动时，如果有 groupid，可以进行配置，如果没有则不用管，DefaultsTools会默认使用 app 本身的standard配置
+    //在项目 app 启动时，如果有 groupid，可以进行配置，如果没有则不用管，SHCDefaultsTools会默认使用 app 本身的standard配置
     public static func configure(appGroupID: String) {
         self.appGroupID = appGroupID
     }
     // MARK: - 工厂
 
-    //static let standard = DefaultsTools(userDefaults: .standard)
+    //static let standard = SHCDefaultsTools(userDefaults: .standard)
 
-    public static var group: DefaultsTools {
-        DefaultsTools(userDefaults: UserDefaults(suiteName: appGroupID) ?? .standard)
+    public static var group: SHCDefaultsTools {
+        SHCDefaultsTools(userDefaults: UserDefaults(suiteName: appGroupID) ?? .standard)
     }
     
     /// 自动选择（推荐）调用的入口
-    public static var shared: DefaultsTools {
+    public static var shared: SHCDefaultsTools {
         if let groupUD = UserDefaults(suiteName: appGroupID) {
-            return DefaultsTools(userDefaults: groupUD)
+            return SHCDefaultsTools(userDefaults: groupUD)
         } else {
-            return DefaultsTools(userDefaults: .standard)
+            return SHCDefaultsTools(userDefaults: .standard)
         }
     }
 
@@ -161,14 +161,14 @@ public struct DefaultsTools: @unchecked Sendable {
 }
 
 // MARK: - Codable 支持，可以保存结构体
-public extension DefaultsTools {
+public extension SHCDefaultsTools {
     /// 保存 Codable 对象
     func setCodable<T: Codable>(_ value: T, forStringKey key: String) {
         do {
             let data = try JSONEncoder().encode(value)
             ud.set(data, forKey: key)
         } catch {
-            print("DefaultsTools 保存 Codable 失败：\(error)")
+            assertionFailure("SHCDefaultsTools failed to encode Codable value for key \(key): \(error)")
         }
     }
 
@@ -178,7 +178,7 @@ public extension DefaultsTools {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
-            print("DefaultsTools 读取 Codable 失败：\(error)")
+            assertionFailure("SHCDefaultsTools failed to decode Codable value for key \(key): \(error)")
             return nil
         }
     }

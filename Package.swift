@@ -19,6 +19,10 @@ let package = Package(
     targets: [
         .target(
             name: "SHCDesignSystem",
+            exclude: [
+                "SHCDesignSystemGallery.swift",
+                "SHCDesignSystemPreview.swift"
+            ],
             resources: [
                 .process("SHCDefaultTheme.json")
             ]

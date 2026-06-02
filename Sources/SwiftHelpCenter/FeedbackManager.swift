@@ -8,7 +8,11 @@
 import SwiftUI
 import Foundation
 import Combine
+#if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 import UniformTypeIdentifiers
 import SHCDesignSystem
 
@@ -89,14 +93,28 @@ public struct FeedbackPayload {
 public struct AppStoreHelper {
     /// 打开 App Store 评分页面
     public static func rateApp(appleID: String) {
+        guard !appleID.isEmpty else { return }
+
         #if os(macOS)
-        let urlString = "macappstore://itunes.apple.com/app/id\(appleID)?action=write-review"
-        guard let url = URL(string: urlString) else { return }
-        NSWorkspace.shared.open(url)
+        guard let appStoreURL = URL(string: "macappstore://apps.apple.com/app/id\(appleID)?action=write-review"),
+              let webURL = URL(string: "https://apps.apple.com/app/id\(appleID)?action=write-review") else {
+            return
+        }
+
+        if !NSWorkspace.shared.open(appStoreURL) {
+            NSWorkspace.shared.open(webURL)
+        }
         #elseif os(iOS)
-        let urlString = "itms-apps://itunes.apple.com/app/id\(appleID)?action=write-review"
-        guard let url = URL(string: urlString) else { return }
-        UIApplication.shared.open(url)
+        guard let appStoreURL = URL(string: "itms-apps://apps.apple.com/app/id\(appleID)?action=write-review"),
+              let webURL = URL(string: "https://apps.apple.com/app/id\(appleID)?action=write-review") else {
+            return
+        }
+
+        UIApplication.shared.open(appStoreURL, options: [:]) { success in
+            if !success {
+                UIApplication.shared.open(webURL, options: [:])
+            }
+        }
         #endif
     }
 }
@@ -112,6 +130,13 @@ public struct SystemInfoProvider {
 
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
         let systemVersion = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+        #if os(macOS)
+        let platformName = "macOS"
+        #elseif os(iOS)
+        let platformName = "iOS"
+        #else
+        let platformName = "OS"
+        #endif
 
         let cpuType = HardwareInfo.cpuType()
         let locale = Locale.current.identifier
@@ -119,7 +144,7 @@ public struct SystemInfoProvider {
         return """
         App: \(name)
         Version: \(version) (\(build))
-        System: macOS \(systemVersion)
+        System: \(platformName) \(systemVersion)
         CPU: \(cpuType)
         Locale: \(locale)
         """
@@ -163,9 +188,22 @@ public final class FeedbackManager: ObservableObject {
     /// - Parameters:
     ///   - appleID: Mac App Store 的应用 ID，用于「给应用评分」功能
     ///   - supportURL: 技术支持页面的 URL
-    ///   - email: 接收反馈的邮箱地址，默认使用 `FeedbackConfiguration.defaultEmail`
-    ///   - discordWebhook: Discord Webhook URL，默认使用 `FeedbackConfiguration.defaultDiscordWebhook`
-    ///   - dingTalkWebhook: 钉钉机器人 Webhook URL，默认使用 `FeedbackConfiguration.defaultDingTalkWebhook`
+    ///   - email: 接收反馈的邮箱地址
+    ///   - discordWebhook: Discord Webhook URL，不传则不显示 Discord 渠道
+    ///   - dingTalkWebhook: 钉钉机器人 Webhook URL，不传则不显示钉钉渠道
+    ///   - appName: 应用名称（可选），用于系统信息收集
+    public func configure(_ configuration: FeedbackConfiguration) {
+        config = configuration
+    }
+
+    /// 配置反馈管理器。必须在调用 sendFeedback 或使用 FeedbackView 之前调用。
+    ///
+    /// - Parameters:
+    ///   - appleID: Mac App Store / App Store 的应用 ID，用于「给应用评分」功能
+    ///   - supportURL: 技术支持页面的 URL
+    ///   - email: 接收反馈的邮箱地址
+    ///   - discordWebhook: Discord Webhook URL，不传则不显示 Discord 渠道
+    ///   - dingTalkWebhook: 钉钉机器人 Webhook URL，不传则不显示钉钉渠道
     ///   - appName: 应用名称（可选），用于系统信息收集
     public func configure(
         appleID: String,
@@ -175,14 +213,14 @@ public final class FeedbackManager: ObservableObject {
         dingTalkWebhook: String? = nil,
         appName: String? = nil
     ) {
-        config = FeedbackConfiguration(
+        configure(FeedbackConfiguration(
             appleID: appleID,
             supportURL: supportURL,
             email: email,
             discordWebhook: discordWebhook,
             dingTalkWebhook: dingTalkWebhook,
             appName: appName
-        )
+        ))
     }
 
     public var isConfigured: Bool { config != nil }
@@ -255,14 +293,20 @@ public final class FeedbackManager: ObservableObject {
 
         if let url = URL(string: mailto) {
             #if os(macOS)
-            _ = await MainActor.run {
-                NSWorkspace.shared.open(url)
-            }
+            let didOpen = NSWorkspace.shared.open(url)
             #elseif os(iOS)
-            await MainActor.run {
-                UIApplication.shared.open(url)
+            let didOpen = await withCheckedContinuation { continuation in
+                UIApplication.shared.open(url, options: [:]) { success in
+                    continuation.resume(returning: success)
+                }
             }
+            #else
+            let didOpen = false
             #endif
+
+            guard didOpen else {
+                throw FeedbackError.mailUnavailable
+            }
         }
     }
 
@@ -363,6 +407,7 @@ public final class FeedbackManager: ObservableObject {
 
 public enum FeedbackError: LocalizedError {
     case notConfigured
+    case mailUnavailable
     case discordWebhookFailed
     case discordRequestFailed
     case discordUploadFailed(statusCode: Int, message: String)
@@ -372,6 +417,8 @@ public enum FeedbackError: LocalizedError {
         switch self {
         case .notConfigured:
             return packageL("FeedbackManager.notConfigured")
+        case .mailUnavailable:
+            return packageL("FeedbackManager.mailUnavailable")
         case .discordWebhookFailed:
             return packageL("FeedbackManager.discordWebhookFailed")
         case .discordRequestFailed:
@@ -389,7 +436,6 @@ public enum FeedbackError: LocalizedError {
 public struct FeedbackView: View {
     @State private var content: String = ""
     @State private var selectedChannel: FeedbackChannel = .mail
-    @State private var images: [NSImage] = []
     @State private var includeSystemInfo: Bool = true
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
@@ -411,9 +457,10 @@ public struct FeedbackView: View {
                 // 评分 & 技术支持
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Button(packageL("FeedbackView.rate")) {
-                            guard let config = FeedbackManager.shared.config else { return }
-                            AppStoreHelper.rateApp(appleID: config.appleID)
+                        if let appleID = FeedbackManager.shared.config?.appleID, !appleID.isEmpty {
+                            Button(packageL("FeedbackView.rate")) {
+                                AppStoreHelper.rateApp(appleID: appleID)
+                            }
                         }
                         if let config = FeedbackManager.shared.config {
                             Button {
@@ -427,9 +474,7 @@ public struct FeedbackView: View {
                                 }
                                 #endif
                             } label: {
-                                Text(packageL("FeedbackView.techSupport"))
-                                Text(config.supportURL)
-                                    .foregroundColor(.blue)
+                                Label(packageL("FeedbackView.techSupport"), systemImage: "lifepreserver")
                             }
                         }
                         Spacer()
@@ -638,8 +683,6 @@ public struct SHCTextView: NSViewRepresentable {
 }
 
 #elseif os(iOS)
-
-import UIKit
 
 /// 为解决 TextEditor 文字被截的问题而自定义的 UITextView 封装
 public struct SHCTextView: UIViewRepresentable {

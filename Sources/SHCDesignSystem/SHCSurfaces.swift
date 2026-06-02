@@ -575,7 +575,7 @@ public struct CollapsibleSection<Content: View>: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color(.controlBackgroundColor))
+        .background(SHCTheme.shared.colors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md))
     }
 }

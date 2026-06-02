@@ -28,6 +28,7 @@
 "FeedbackView.ok" = "OK";
 "FeedbackManager.sysInfo" = "System Info";
 "FeedbackManager.notConfigured" = "FeedbackManager has not been configured. Call configure() first.";
+"FeedbackManager.mailUnavailable" = "No available mail app was found. Please configure Discord or DingTalk, or install a mail app.";
 "FeedbackManager.discordWebhookFailed" = "Discord webhook returned an error.";
 "FeedbackManager.discordRequestFailed" = "Discord request failed.";
 "FeedbackManager.discordUploadFailed" = "Discord upload failed";

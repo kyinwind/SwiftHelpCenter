@@ -65,6 +65,14 @@ SHCHelpButton()
 SHCHelpButton(size: .large)
 ```
 
+On macOS, `SHCHelpButton()` opens a standalone help center window by default. On iOS, it presents the help center as a sheet.
+
+If your iOS screen is already inside a `NavigationStack`, use the navigation entry component:
+
+```swift
+SHCHelpNavigationLink(title: "Help Center")
+```
+
 **3. Open windows (macOS)**
 
 ```swift
@@ -340,7 +348,14 @@ ReviewPromptManager.shared.needShowPopup(type: "AppLogin")
 ### Handling the Popup
 
 `checkReviewPrompt` posts a `Notification.Name.openReviewPromptWindow` notification
-when the thresholds are met. Your app should listen for it:
+when the thresholds are met. The recommended SwiftUI setup is to attach the built-in sheet listener to your app's root view:
+
+```swift
+ContentView()
+    .shcReviewPromptSheet()
+```
+
+If you need a custom presentation, you can still listen for the notification and present `ReviewPromptView` yourself:
 
 ```swift
 NotificationCenter.default.addObserver(
@@ -348,11 +363,11 @@ NotificationCenter.default.addObserver(
     object: nil,
     queue: .main
 ) { _ in
-    // Present PreviewPromptView()
+    // Present ReviewPromptView()
 }
 ```
 
-`PreviewPromptView` shows four buttons:
+`ReviewPromptView` shows four buttons:
 - **Never Ask Again** — permanently silences prompts
 - **Remind Later** — increases thresholds (clicks +30, days +3)
 - **Settings** — triggers the `onOpenSettings` callback

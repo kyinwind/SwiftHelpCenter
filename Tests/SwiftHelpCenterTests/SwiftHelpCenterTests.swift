@@ -63,8 +63,7 @@ func designTokensPartialDecode() throws {
     let decoded = try JSONDecoder().decode(SHCDesignTokens.self, from: json)
 
     #expect(decoded.colors.primary.toHex() == "#FF0000")
-    // non-provided keys keep defaults — Color.blue maps to #0091FF on sRGB
-    #expect(decoded.colors.accent.toHex() == "#0091FF")
+    #expect(decoded.colors.accent.toHex() == SHCColorTokens().accent.toHex())
 }
 
 // MARK: - HelpCenter: SHCHelpVideoLink
@@ -241,27 +240,67 @@ struct ReviewPromptTests {
 
         ReviewPromptManager.shared.cleanData()
     }
+
+    @Test("configure preserves existing never prompt state")
+    func configurePreservesNeverPrompt() {
+        ReviewPromptManager.shared.cleanData()
+        ReviewPromptManager.shared.configure(ReviewPromptConfiguration(
+            appleID: "123456789",
+            defaultClickThreshold: 1,
+            defaultDaysThreshold: 0
+        ))
+
+        ReviewPromptManager.shared.neverPrompt()
+
+        ReviewPromptManager.shared.configure(ReviewPromptConfiguration(
+            appleID: "123456789",
+            defaultClickThreshold: 1,
+            defaultDaysThreshold: 0
+        ))
+
+        #expect(ReviewPromptManager.shared.needShowPopup(type: "after_reconfigure") == false)
+        ReviewPromptManager.shared.cleanData()
+    }
 }
 
-// MARK: - DefaultsTools: Codable Support
+// MARK: - FeedbackManager: Configuration
+
+@MainActor
+@Test("FeedbackManager accepts configuration instance")
+func feedbackManagerConfigureInstance() {
+    let configuration = FeedbackConfiguration(
+        appleID: "6448427701",
+        supportURL: "mailto:feedback@example.com",
+        email: "feedback@example.com",
+        appName: "Test App"
+    )
+
+    FeedbackManager.shared.configure(configuration)
+
+    #expect(FeedbackManager.shared.config?.appleID == "6448427701")
+    #expect(FeedbackManager.shared.config?.email == "feedback@example.com")
+    #expect(FeedbackManager.shared.config?.appName == "Test App")
+}
+
+// MARK: - SHCDefaultsTools: Codable Support
 
 private struct TestConfig: Codable, Equatable {
     var name: String
     var count: Int
 }
 
-@Test("DefaultsTools Codable save and load")
-func defaultsToolsCodable() {
+@Test("SHCDefaultsTools Codable save and load")
+func SHCDefaultsToolsCodable() {
     let key = "SwiftHelpCenter.test.codable"
     let config = TestConfig(name: "test", count: 42)
 
-    DefaultsTools.shared.setCodable(config, forStringKey: key)
-    let loaded: TestConfig? = DefaultsTools.shared.codable(TestConfig.self, forStringKey: key)
+    SHCDefaultsTools.shared.setCodable(config, forStringKey: key)
+    let loaded: TestConfig? = SHCDefaultsTools.shared.codable(TestConfig.self, forStringKey: key)
 
     #expect(loaded != nil)
     #expect(loaded?.name == "test")
     #expect(loaded?.count == 42)
 
     // Clean up
-    DefaultsTools.shared.remove(forStringKey: key)
+    SHCDefaultsTools.shared.remove(forStringKey: key)
 }

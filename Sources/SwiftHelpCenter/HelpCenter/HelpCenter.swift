@@ -422,22 +422,21 @@ public struct SHCHelpButton: View {
     }
 
     @State private var manager: SHCHelpCenterManager
+    #if os(iOS)
+    @State private var isShowingHelpCenter = false
+    #endif
 
     private let title: String
     private let systemImage: String
     private let size: Size
-    private let action: () -> Void
+    private let action: (() -> Void)?
 
     public init(
         title: String = packageL(SwiftHelpCenterL10n.helpCenterHelp),
         systemImage: String = "questionmark.circle",
         size: Size = .toolbar,
         manager: SHCHelpCenterManager = .shared,
-        action: @escaping () -> Void = {
-#if os(macOS)
-            SHCHelpCenterWindowPresenter.shared.show()
-#endif
-        }
+        action: (() -> Void)? = nil
     ) {
         self._manager = State(initialValue: manager)
         self.title = title
@@ -447,7 +446,7 @@ public struct SHCHelpButton: View {
     }
 
     public var body: some View {
-        Button(action: action) {
+        Button(action: performAction) {
             HStack(spacing: SHCTheme.shared.spacing.sm) {
                 Image(systemName: systemImage)
                     .font(.system(size: size.iconFontSize, weight: .regular))
@@ -474,12 +473,89 @@ public struct SHCHelpButton: View {
         }
         .buttonStyle(.plain)
         .help(title)
+        #if os(iOS)
+        .sheet(isPresented: $isShowingHelpCenter) {
+            NavigationStack {
+                SHCVersionHistoryListView(title: title, manager: manager)
+                    .navigationTitle(title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(packageL(SwiftHelpCenterL10n.feedbackOK)) {
+                                isShowingHelpCenter = false
+                            }
+                        }
+                    }
+            }
+        }
+        #endif
+    }
+
+    private func performAction() {
+        if let action {
+            action()
+            return
+        }
+
+#if os(macOS)
+        SHCHelpCenterWindowPresenter.shared.show()
+#elseif os(iOS)
+        isShowingHelpCenter = true
+#endif
+    }
+}
+
+/// 适合放在 iOS `NavigationStack` 工具栏中的帮助中心导航入口。
+public struct SHCHelpNavigationLink: View {
+    @State private var manager: SHCHelpCenterManager
+
+    private let title: String
+    private let systemImage: String
+    private let iconColor: Color
+    private let iconSize: CGFloat
+    private let dotSize: CGFloat
+
+    public init(
+        title: String = packageL(SwiftHelpCenterL10n.helpCenterTitle),
+        systemImage: String = "questionmark.circle.fill",
+        iconColor: Color = .blue,
+        iconSize: CGFloat = 40,
+        dotSize: CGFloat = 8,
+        manager: SHCHelpCenterManager = .shared
+    ) {
+        self._manager = State(initialValue: manager)
+        self.title = title
+        self.systemImage = systemImage
+        self.iconColor = iconColor
+        self.iconSize = iconSize
+        self.dotSize = dotSize
+    }
+
+    public var body: some View {
+        NavigationLink {
+            SHCVersionHistoryListView(title: title, manager: manager)
+                .navigationTitle(title)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(iconColor)
+                .frame(width: iconSize, height: iconSize)
+                .overlay(alignment: .topTrailing) {
+                    if manager.hasUnreadUpdates {
+                        SHCUnreadDot(color: manager.unreadColor, size: dotSize)
+                            .offset(x: -5, y: 5)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
     }
 }
 
 // MARK: - Version History List
 
 public struct SHCVersionHistoryListView: View {
+    @Environment(\.openURL) private var openURL
+
     @State private var manager: SHCHelpCenterManager
 
     private let title: String
@@ -578,36 +654,58 @@ public struct SHCVersionHistoryListView: View {
         }
     }
 
+    @ViewBuilder
     private var header: some View {
+        #if os(iOS)
+        VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.md) {
+            SHCSectionTitle(title: title, subtitle: subtitle)
+            headerActions
+        }
+        #else
         HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
             SHCSectionTitle(title: title, subtitle: subtitle)
 
             Spacer(minLength: SHCTheme.shared.spacing.md)
 
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
-                if let supportURL = manager.supportURL {
-                    SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
-#if os(macOS)
-                        NSWorkspace.shared.open(supportURL)
-#endif
-                    }) {
-                        Label(packageL(SwiftHelpCenterL10n.helpCenterOpenSupport), systemImage: "safari")
-                    }
-                }
-
-                SHCHelpActionButton(role: .secondary, accentColor: manager.accentColor, action: {
-                    manager.markAllAsRead()
-                }) {
-                    Label(packageL(SwiftHelpCenterL10n.helpCenterMarkAllRead), systemImage: "checkmark.circle")
-                }
-                .disabled(!manager.hasUnreadUpdates)
-            }
+            headerActions
         }
+        #endif
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: SHCTheme.shared.spacing.sm) {
+            if let supportURL = manager.supportURL {
+                SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
+                    openURL(supportURL)
+                }) {
+                    Label(packageL(SwiftHelpCenterL10n.helpCenterOpenSupport), systemImage: "safari")
+                }
+                #if os(iOS)
+                .frame(maxWidth: .infinity)
+                #endif
+            }
+
+            SHCHelpActionButton(role: .secondary, accentColor: manager.accentColor, action: {
+                manager.markAllAsRead()
+            }) {
+                Label(packageL(SwiftHelpCenterL10n.helpCenterMarkAllRead), systemImage: "checkmark.circle")
+            }
+            .disabled(!manager.hasUnreadUpdates)
+            #if os(iOS)
+            .frame(maxWidth: .infinity)
+            #endif
+        }
+        #if os(iOS)
+        .frame(maxWidth: .infinity)
+        #endif
     }
 }
 
 private struct SHCHelpQuickLinkButton: View {
     @Environment(\.openURL) private var openURL
+    #if os(iOS)
+    @State private var isShowingFeedback = false
+    #endif
 
     let link: SHCHelpQuickLinkItem
     let manager: SHCHelpCenterManager
@@ -645,6 +743,22 @@ private struct SHCHelpQuickLinkButton: View {
             .contentShape(RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
+        #if os(iOS)
+        .sheet(isPresented: $isShowingFeedback) {
+            NavigationStack {
+                FeedbackView()
+                    .navigationTitle(packageL(SwiftHelpCenterL10n.helpCenterFeedback))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(packageL(SwiftHelpCenterL10n.feedbackOK)) {
+                                isShowingFeedback = false
+                            }
+                        }
+                    }
+            }
+        }
+        #endif
     }
 
     private func performAction() {
@@ -654,13 +768,13 @@ private struct SHCHelpQuickLinkButton: View {
         case .feedback:
 #if os(macOS)
             SHCFeedbackWindowPresenter.shared.show()
+#elseif os(iOS)
+            isShowingFeedback = true
 #endif
         case .appStoreReview:
-#if os(macOS)
             if let appleID = FeedbackManager.shared.config?.appleID {
                 AppStoreHelper.rateApp(appleID: appleID)
             }
-#endif
         case .support:
             if let url = manager.supportURL {
                 openURL(url)
@@ -708,7 +822,12 @@ private struct SHCHelpActionButton<LabelContent: View>: View {
             label()
                 .font(SHCTheme.shared.typography.bodyStrong)
                 .foregroundStyle(accentColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
                 .frame(height: SHCTheme.shared.controlSize.buttonHeight)
+                #if os(iOS)
+                .frame(maxWidth: .infinity)
+                #endif
                 .padding(.horizontal, SHCTheme.shared.spacing.md)
                 .background(background)
                 .contentShape(RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous))
@@ -792,12 +911,6 @@ private struct SHCVersionHistoryRow: View {
                 }
             }
         }
-    }
-
-    private func openURL(_ url: URL) {
-#if os(macOS)
-        NSWorkspace.shared.open(url)
-#endif
     }
 
     private func formattedDate(_ date: Date) -> String {

@@ -8,6 +8,11 @@
 import SwiftUI
 import StoreKit
 import Foundation
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 public extension Notification.Name {
     static let openReviewPromptWindow = Notification.Name("SwiftHelpCenter.openReviewPromptWindow")
@@ -70,12 +75,18 @@ public final class ReviewPromptManager {
         self.config = config
         self.hasConfigured = true
 
-        // Always save info with latest config defaults
-        let info = ReviewPromptInfo(
-            maxClickCount: config.defaultClickThreshold,
-            maxDaysCount: config.defaultDaysThreshold
+        let existingInfo: ReviewPromptInfo? = SHCDefaultsTools.shared.codable(
+            ReviewPromptInfo.self,
+            forStringKey: reviewPromptInfoKey
         )
-        DefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
+
+        if existingInfo == nil {
+            let info = ReviewPromptInfo(
+                maxClickCount: config.defaultClickThreshold,
+                maxDaysCount: config.defaultDaysThreshold
+            )
+            SHCDefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
+        }
     }
 
     private let reviewPromptInfoKey = "SwiftHelpCenter.reviewPromptInfo"
@@ -89,7 +100,7 @@ public final class ReviewPromptManager {
     public func needShowPopup(type: String) -> Bool {
         guard hasConfigured else { return false }
 
-        guard let info: ReviewPromptInfo = DefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
+        guard let info: ReviewPromptInfo = SHCDefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
             return false
         }
 
@@ -97,16 +108,20 @@ public final class ReviewPromptManager {
             return false
         }
 
-        let historys: [ClickMenuHistory] = DefaultsTools.shared.codable([ClickMenuHistory].self, forStringKey: clickHistoryKey) ?? []
+        let historys: [ClickMenuHistory] = SHCDefaultsTools.shared.codable([ClickMenuHistory].self, forStringKey: clickHistoryKey) ?? []
         let daysCount = howmuchDays(historys: historys)
 
         if !info.isShowReviewPopup {
             // 记录本次点击
-            var list: [ClickMenuHistory] = DefaultsTools.shared.codable([ClickMenuHistory].self, forStringKey: clickHistoryKey) ?? []
+            var list: [ClickMenuHistory] = SHCDefaultsTools.shared.codable([ClickMenuHistory].self, forStringKey: clickHistoryKey) ?? []
             list.append(ClickMenuHistory(actType: type, clickDate: .now))
-            DefaultsTools.shared.setCodable(list, forStringKey: clickHistoryKey)
+            SHCDefaultsTools.shared.setCodable(list, forStringKey: clickHistoryKey)
 
             if daysCount >= info.maxDaysCount && list.count > info.maxClickCount {
+                var updatedInfo = info
+                updatedInfo.isShowReviewPopup = true
+                updatedInfo.lastPromptDate = .now
+                SHCDefaultsTools.shared.setCodable(updatedInfo, forStringKey: reviewPromptInfoKey)
                 return true
             }
         }
@@ -116,33 +131,30 @@ public final class ReviewPromptManager {
 
     /// 用户选择了「稍后再说」
     public func holdOn() {
-        guard var info: ReviewPromptInfo = DefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
+        guard var info: ReviewPromptInfo = SHCDefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
             return
         }
+        info.isShowReviewPopup = false
+        info.lastPromptDate = .now
         info.maxDaysCount += 3
         info.maxClickCount += 30
-        DefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
+        SHCDefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
     }
 
     /// 用户选择了「不再提醒」
     public func neverPrompt() {
-        guard var info: ReviewPromptInfo = DefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
+        guard var info: ReviewPromptInfo = SHCDefaultsTools.shared.codable(ReviewPromptInfo.self, forStringKey: reviewPromptInfoKey) else {
             return
         }
+        info.hasReviewed = true
         info.neverPrompt = true
-        DefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
+        SHCDefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
     }
 
     /// 清空数据（测试用）
     public func cleanData() {
-        DefaultsTools.shared.setCodable([ClickMenuHistory](), forStringKey: clickHistoryKey)
-        if let config {
-            let info = ReviewPromptInfo(
-                maxClickCount: config.defaultClickThreshold,
-                maxDaysCount: config.defaultDaysThreshold
-            )
-            DefaultsTools.shared.setCodable(info, forStringKey: reviewPromptInfoKey)
-        }
+        SHCDefaultsTools.shared.remove(forStringKey: clickHistoryKey)
+        SHCDefaultsTools.shared.remove(forStringKey: reviewPromptInfoKey)
     }
 
     // MARK: - 内部辅助
@@ -172,9 +184,45 @@ public func checkReviewPrompt(_ actType: String) {
     }
 }
 
-// MARK: - PreviewPromptView
+// MARK: - SwiftUI Presentation Helper
 
-public struct PreviewPromptView: View {
+public extension View {
+    /// 在宿主 App 的根视图上监听评价提醒通知，并用 SwiftUI sheet 展示提示框。
+    ///
+    /// 用法：
+    /// ```
+    /// ContentView()
+    ///     .shcReviewPromptSheet()
+    /// ```
+    @MainActor
+    func shcReviewPromptSheet() -> some View {
+        modifier(SHCReviewPromptSheetModifier())
+    }
+}
+
+private struct SHCReviewPromptSheetModifier: ViewModifier {
+    @State private var isPresented = false
+    @State private var model = ReviewPromptViewModel.shared
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .openReviewPromptWindow)) { _ in
+                isPresented = true
+            }
+            .sheet(isPresented: $isPresented, onDismiss: {
+                model.actType = nil
+            }) {
+                ReviewPromptView(actType: model.actType)
+                    #if os(iOS)
+                    .presentationDetents([.medium])
+                    #endif
+            }
+    }
+}
+
+// MARK: - ReviewPromptView
+
+public struct ReviewPromptView: View {
     @Environment(\.dismiss) var dismiss
 
     let actType: String?
@@ -184,64 +232,85 @@ public struct PreviewPromptView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             Text("ReviewPromptManager.title", bundle: .module)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text("ReviewPromptManager.request", bundle: .module)
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
+            actions
+        }
+        .padding(24)
+        .frame(maxWidth: 560)
+        #if os(macOS)
+        .frame(minWidth: 520, minHeight: 220)
+        #endif
+    }
+
+    private var actions: some View {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: 10) {
-                Button {
-                    ReviewPromptManager.shared.neverPrompt()
-                    dismiss()
-                } label: {
-                    Text("ReviewPromptManager.button.never", bundle: .module)
-                }
-                .cornerRadius(8)
+                actionButtons
+            }
 
-                Button {
-                    ReviewPromptManager.shared.holdOn()
-                    dismiss()
-                } label: {
-                    Text("ReviewPromptManager.button.holdOn", bundle: .module)
-                }
-                .cornerRadius(8)
-
-                Button {
-                    if let onOpenSettings = ReviewPromptManager.shared.config?.onOpenSettings {
-                        onOpenSettings()
-                    }
-                    dismiss()
-                } label: {
-                    Text("ReviewPromptManager.button.settings", bundle: .module)
-                }
-                .cornerRadius(8)
-
-                Button {
-                    if let onReview = ReviewPromptManager.shared.config?.onReview {
-                        onReview()
-                    } else {
-                        // 默认走 App Store 写评价
-                        if let appleID = ReviewPromptManager.shared.config?.appleID {
-                            goToAppStoreReview(appleID: appleID)
-                        }
-                    }
-                    ReviewPromptManager.shared.neverPrompt()
-                } label: {
-                    Text("ReviewPromptManager.button.review", bundle: .module)
-                }
-                .cornerRadius(8)
-                .keyboardShortcut(.defaultAction)
+            VStack(spacing: 10) {
+                actionButtons
             }
         }
-        .padding()
-        .frame(minWidth: 600, maxWidth: 700, minHeight: 200, maxHeight: 300)
-        .cornerRadius(16)
-        .shadow(radius: 10)
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        Button {
+            ReviewPromptManager.shared.neverPrompt()
+            dismiss()
+        } label: {
+            Text("ReviewPromptManager.button.never", bundle: .module)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+
+        Button {
+            ReviewPromptManager.shared.holdOn()
+            dismiss()
+        } label: {
+            Text("ReviewPromptManager.button.holdOn", bundle: .module)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+
+        Button {
+            if let onOpenSettings = ReviewPromptManager.shared.config?.onOpenSettings {
+                onOpenSettings()
+            }
+            dismiss()
+        } label: {
+            Text("ReviewPromptManager.button.settings", bundle: .module)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+
+        Button {
+            if let onReview = ReviewPromptManager.shared.config?.onReview {
+                onReview()
+            } else {
+                if let appleID = ReviewPromptManager.shared.config?.appleID {
+                    goToAppStoreReview(appleID: appleID)
+                }
+            }
+            ReviewPromptManager.shared.neverPrompt()
+        } label: {
+            Text("ReviewPromptManager.button.review", bundle: .module)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction)
     }
 
     private func goToAppStoreReview(appleID: String) {
@@ -266,7 +335,7 @@ struct ReviewPromptContainerView: View {
     var body: some View {
         Group {
             if model.actType != nil {
-                PreviewPromptView(actType: model.actType)
+                ReviewPromptView(actType: model.actType)
                     .frame(width: 400, height: 300)
             } else {
                 ProgressView("准备中…")
@@ -278,5 +347,5 @@ struct ReviewPromptContainerView: View {
 
 #Preview {
     let actType = "AppLogin"
-    PreviewPromptView(actType: actType)
+    ReviewPromptView(actType: actType)
 }
