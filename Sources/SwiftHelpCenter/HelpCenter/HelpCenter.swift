@@ -1501,26 +1501,19 @@ private struct SHCAnnouncementSummaryRow: View {
                         )
 
                     VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                        HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.xs) {
-                            if item.isPinned {
-                                SHCUnreadBadge(
-                                    text: packageL(SwiftHelpCenterL10n.helpCenterPinned),
-                                    color: levelColor
-                                )
-                            }
+                        HStack(alignment: .center, spacing: SHCTheme.shared.spacing.xs) {
+                            announcementBadges
 
-                            SHCUnreadBadge(text: packageL(item.level.localizationKey), color: levelColor)
+                            Spacer(minLength: SHCTheme.shared.spacing.xs)
 
-                            Text(item.title)
-                                .font(SHCTheme.shared.typography.bodyStrong)
-                                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            if isUnread {
-                                SHCUnreadDot(color: unreadColor, size: 7)
-                            }
+                            SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : levelColor)
                         }
+
+                        Text(item.title)
+                            .font(SHCTheme.shared.typography.bodyStrong)
+                            .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text(item.message)
                             .font(SHCTheme.shared.typography.body)
@@ -1531,18 +1524,30 @@ private struct SHCAnnouncementSummaryRow: View {
 
                     Spacer(minLength: SHCTheme.shared.spacing.xs)
 
-                    HStack(spacing: SHCTheme.shared.spacing.xs) {
-                        SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : levelColor)
-
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
-                    }
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(SHCTheme.shared.colors.textTertiary)
                     .padding(.top, SHCTheme.shared.spacing.xxs)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var announcementBadges: some View {
+        if item.isPinned {
+            SHCUnreadBadge(
+                text: packageL(SwiftHelpCenterL10n.helpCenterPinned),
+                color: levelColor
+            )
+        }
+
+        SHCUnreadBadge(text: packageL(item.level.localizationKey), color: levelColor)
+
+        if isUnread {
+            SHCUnreadDot(color: unreadColor, size: 7)
         }
     }
 
@@ -1743,17 +1748,15 @@ private struct SHCVersionHistorySummaryRow: View {
                         )
 
                     VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
-                                versionTitle
-                                versionDate
-                            }
+                        HStack(alignment: .center, spacing: SHCTheme.shared.spacing.xs) {
+                            versionDate
 
-                            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                                versionTitle
-                                versionDate
-                            }
+                            Spacer(minLength: SHCTheme.shared.spacing.xs)
+
+                            SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : accentColor)
                         }
+
+                        versionTitle
 
                         Text(firstChangeSummary)
                             .font(SHCTheme.shared.typography.body)
@@ -1764,13 +1767,9 @@ private struct SHCVersionHistorySummaryRow: View {
 
                     Spacer(minLength: SHCTheme.shared.spacing.xs)
 
-                    HStack(spacing: SHCTheme.shared.spacing.xs) {
-                        SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : accentColor)
-
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
-                    }
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(SHCTheme.shared.colors.textTertiary)
                     .padding(.top, SHCTheme.shared.spacing.xxs)
                 }
                 .contentShape(Rectangle())
