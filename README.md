@@ -5,6 +5,10 @@
 SwiftHelpCenter 是一个开源 Swift Package，帮你快速给 App 装上帮助中心、用户反馈、
 国际化语言切换、评分弹窗管理等常用功能，自带完整 DesignSystem。
 
+它不是传统设置页的替代品，而是面向用户沟通的 App 内帮助中心套件。
+如果你希望在 App 里集中展示公告、版本说明、教程视频、技术支持、反馈入口和评分引导，
+SwiftHelpCenter 可以帮你少造一套重复轮子。
+
 ---
 
 ## 目录
@@ -22,7 +26,7 @@ SwiftHelpCenter 是一个开源 Swift Package，帮你快速给 App 装上帮助
 
 | 模块 | 说明 |
 |------|------|
-| **HelpCenter** | 版本历史 + 快速入口 + FAQ + 视频链接，一键窗口展示 |
+| **HelpCenter** | 公告 + 版本历史 + 快速入口 + FAQ + 视频链接，一键窗口展示 |
 | **FeedbackManager** | 多通道反馈系统（Discord / 钉钉 / 邮件），支持截图上传（macOS） |
 | **Localization** | 用户可手动切换语言的国际化框架（zh-Hans / English） |
 | **ReviewPromptManager** | 基于使用次数和天数的双阈值评分弹窗 |
@@ -42,15 +46,22 @@ SwiftHelpCenter 是一个开源 Swift Package，帮你快速给 App 装上帮助
 import SwiftHelpCenter
 
 // 在 App 初始化时配置
-SHCHelpCenterManager.shared.configure(
-    items: versionHistoryItems,
-    storageKey: "com.myapp.helpCenter.lastViewed",
+SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+    versionHistory: SHCVersionHistoryConfiguration(
+        items: versionHistoryItems,
+        storageKey: "com.myapp.helpCenter.versionRead"
+    ),
+    announcements: SHCAnnouncementConfiguration(
+        items: announcementItems,
+        storageKey: "com.myapp.helpCenter.announcementRead",
+        remoteURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/announcements.json")
+    ),
     supportURL: URL(string: "https://example.com/support"),
     quickLinks: quickLinks,
     faqItems: faqItems,
     accentColor: .orange,
     unreadColor: .red
-)
+))
 ```
 
 **2. 放入工具栏按钮**
@@ -97,6 +108,40 @@ SHCVersionHistoryItem(
 
 支持 `Date` 和 `String` 两种传日期的方式。视频链接使用 `[SHCHelpVideoLink]` 数组，不限制平台。
 
+**SHCAnnouncementItem** — 公告条目
+
+```swift
+SHCAnnouncementItem(
+    id: "notice-2026-06-03",
+    title: "维护通知",
+    message: "今晚将进行短暂维护，期间部分服务可能受到影响。",
+    publishedAtString: "2026-06-03",
+    level: .warning,
+    linkTitle: "查看详情",
+    linkURL: URL(string: "https://example.com/notice"),
+    isPinned: true
+)
+```
+
+公告会显示在帮助中心顶部、快速入口之前。入口红点会同时响应未读公告和未读版本更新。
+
+远程公告 JSON 支持放在 GitHub Raw、自己的网站或任意可访问的 HTTPS 地址：
+
+```json
+[
+  {
+    "id": "notice-2026-06-03",
+    "title": "维护通知",
+    "message": "今晚将进行短暂维护，期间部分服务可能受到影响。",
+    "publishedAt": "2026-06-03",
+    "level": "warning",
+    "linkTitle": "查看详情",
+    "linkURL": "https://example.com/notice",
+    "isPinned": true
+  }
+]
+```
+
 **SHCHelpQuickLinkItem** — 快速入口卡片
 
 ```swift
@@ -139,6 +184,8 @@ manager.isUnread(item)        // 检查某个版本是否未读
 manager.markAsRead(item)      // 标记单个为已读
 manager.markAllAsRead()       // 全部标记已读
 manager.hasUnreadUpdates      // 是否有未读更新
+manager.hasUnreadAnnouncements // 是否有未读公告
+manager.hasUnreadContent      // 是否有任意未读内容
 manager.resetReadState()      // 重置阅读状态
 ```
 

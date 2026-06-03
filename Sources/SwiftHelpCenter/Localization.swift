@@ -19,6 +19,7 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterHelp = "SHCHelpCenter.help"
     public static let helpCenterTitle = "SHCHelpCenter.title"
     public static let helpCenterQuickLinks = "SHCHelpCenter.quickLinks"
+    public static let helpCenterAnnouncements = "SHCHelpCenter.announcements"
     public static let helpCenterFeedback = "SHCHelpCenter.feedback"
     public static let helpCenterRate = "SHCHelpCenter.rate"
     public static let helpCenterFAQ = "SHCHelpCenter.faq"
@@ -31,6 +32,11 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterUpdateApp = "SHCHelpCenter.updateApp"
     public static let helpCenterOpenSupport = "SHCHelpCenter.openSupport"
     public static let helpCenterMarkAllRead = "SHCHelpCenter.markAllRead"
+    public static let helpCenterMarkAllContentRead = "SHCHelpCenter.markAllContentRead"
+    public static let helpCenterPinned = "SHCHelpCenter.pinned"
+    public static let helpCenterViewDetails = "SHCHelpCenter.viewDetails"
+    public static let helpCenterViewAllAnnouncements = "SHCHelpCenter.viewAllAnnouncements"
+    public static let helpCenterCollapseAnnouncements = "SHCHelpCenter.collapseAnnouncements"
 
     // MARK: - FeedbackManager
     public static let feedbackTitle = "FeedbackView.title"

@@ -160,6 +160,226 @@ public struct SHCVersionHistoryItem: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// 公告重要程度。用于决定公告卡片的图标和强调色。
+public enum SHCAnnouncementLevel: String, Codable, Hashable, Sendable {
+    case info
+    case success
+    case warning
+    case critical
+
+    var systemImage: String {
+        switch self {
+        case .info: return "megaphone"
+        case .success: return "checkmark.seal"
+        case .warning: return "exclamationmark.triangle"
+        case .critical: return "exclamationmark.octagon"
+        }
+    }
+}
+
+/// 帮助中心公告。适合展示维护通知、已知问题、新教程、活动提醒等开发者主动沟通内容。
+public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var message: String
+    public var publishedAt: Date
+    public var level: SHCAnnouncementLevel
+    public var linkTitle: String?
+    public var linkURL: URL?
+    public var isPinned: Bool
+    public var expiresAt: Date?
+
+    public init(
+        id: String,
+        title: String,
+        message: String,
+        publishedAt: Date,
+        level: SHCAnnouncementLevel = .info,
+        linkTitle: String? = nil,
+        linkURL: URL? = nil,
+        isPinned: Bool = false,
+        expiresAt: Date? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.message = message
+        self.publishedAt = publishedAt
+        self.level = level
+        self.linkTitle = linkTitle
+        self.linkURL = linkURL
+        self.isPinned = isPinned
+        self.expiresAt = expiresAt
+    }
+
+    public init?(
+        id: String,
+        title: String,
+        message: String,
+        publishedAtString: String,
+        level: SHCAnnouncementLevel = .info,
+        linkTitle: String? = nil,
+        linkURL: URL? = nil,
+        isPinned: Bool = false,
+        expiresAtString: String? = nil
+    ) {
+        guard let publishedAt = SHCAnnouncementDateParser.date(from: publishedAtString) else {
+            return nil
+        }
+        let expiresAt = expiresAtString.flatMap { SHCAnnouncementDateParser.date(from: $0) }
+        self.init(
+            id: id,
+            title: title,
+            message: message,
+            publishedAt: publishedAt,
+            level: level,
+            linkTitle: linkTitle,
+            linkURL: linkURL,
+            isPinned: isPinned,
+            expiresAt: expiresAt
+        )
+    }
+
+    public var isExpired: Bool {
+        guard let expiresAt else { return false }
+        return expiresAt < Date()
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, message, publishedAt, level, linkTitle, linkURL, isPinned, expiresAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        message = try container.decode(String.self, forKey: .message)
+        level = try container.decodeIfPresent(SHCAnnouncementLevel.self, forKey: .level) ?? .info
+        linkTitle = try container.decodeIfPresent(String.self, forKey: .linkTitle)
+        linkURL = try container.decodeIfPresent(URL.self, forKey: .linkURL)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+
+        let publishedAtString = try container.decode(String.self, forKey: .publishedAt)
+        guard let parsedPublishedAt = SHCAnnouncementDateParser.date(from: publishedAtString) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .publishedAt,
+                in: container,
+                debugDescription: "Expected yyyy-MM-dd or ISO8601 date string."
+            )
+        }
+        publishedAt = parsedPublishedAt
+
+        if let expiresAtString = try container.decodeIfPresent(String.self, forKey: .expiresAt) {
+            expiresAt = SHCAnnouncementDateParser.date(from: expiresAtString)
+        } else {
+            expiresAt = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(message, forKey: .message)
+        try container.encode(SHCAnnouncementDateParser.string(from: publishedAt), forKey: .publishedAt)
+        try container.encode(level, forKey: .level)
+        try container.encodeIfPresent(linkTitle, forKey: .linkTitle)
+        try container.encodeIfPresent(linkURL, forKey: .linkURL)
+        try container.encode(isPinned, forKey: .isPinned)
+        if let expiresAt {
+            try container.encode(SHCAnnouncementDateParser.string(from: expiresAt), forKey: .expiresAt)
+        }
+    }
+}
+
+private enum SHCAnnouncementDateParser {
+    static func date(from string: String) -> Date? {
+        if let date = ISO8601DateFormatter().date(from: string) {
+            return date
+        }
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: string)
+    }
+
+    static func string(from date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Help Center Configuration
+
+public struct SHCVersionHistoryConfiguration: Sendable {
+    public var items: [SHCVersionHistoryItem]
+    public var storageKey: String
+    public var markExistingItemsAsReadOnFirstConfigure: Bool
+
+    public init(
+        items: [SHCVersionHistoryItem] = [],
+        storageKey: String,
+        markExistingItemsAsReadOnFirstConfigure: Bool = true
+    ) {
+        self.items = items
+        self.storageKey = storageKey
+        self.markExistingItemsAsReadOnFirstConfigure = markExistingItemsAsReadOnFirstConfigure
+    }
+}
+
+public struct SHCAnnouncementConfiguration: Sendable {
+    public var items: [SHCAnnouncementItem]
+    public var storageKey: String
+    public var remoteURL: URL?
+
+    public init(
+        items: [SHCAnnouncementItem] = [],
+        storageKey: String,
+        remoteURL: URL? = nil
+    ) {
+        self.items = items
+        self.storageKey = storageKey
+        self.remoteURL = remoteURL
+    }
+}
+
+public struct SHCHelpCenterConfiguration {
+    public var versionHistory: SHCVersionHistoryConfiguration
+    public var announcements: SHCAnnouncementConfiguration?
+    public var supportURL: URL?
+    public var quickLinks: [SHCHelpQuickLinkItem]
+    public var faqItems: [SHCHelpFAQItem]
+    public var includeDefaultFeedbackLinks: Bool
+    public var accentColor: Color
+    public var unreadColor: Color
+    public var defaults: UserDefaults
+
+    public init(
+        versionHistory: SHCVersionHistoryConfiguration,
+        announcements: SHCAnnouncementConfiguration? = nil,
+        supportURL: URL? = nil,
+        quickLinks: [SHCHelpQuickLinkItem] = [],
+        faqItems: [SHCHelpFAQItem] = [],
+        includeDefaultFeedbackLinks: Bool = true,
+        accentColor: Color = SHCTheme.shared.colors.accent,
+        unreadColor: Color = SHCTheme.shared.colors.danger,
+        defaults: UserDefaults = .standard
+    ) {
+        self.versionHistory = versionHistory
+        self.announcements = announcements
+        self.supportURL = supportURL
+        self.quickLinks = quickLinks
+        self.faqItems = faqItems
+        self.includeDefaultFeedbackLinks = includeDefaultFeedbackLinks
+        self.accentColor = accentColor
+        self.unreadColor = unreadColor
+        self.defaults = defaults
+    }
+}
+
 // MARK: - Help Center Manager
 
 @MainActor
@@ -168,58 +388,61 @@ public final class SHCHelpCenterManager {
     public static let shared = SHCHelpCenterManager()
 
     public private(set) var items: [SHCVersionHistoryItem] = []
+    public private(set) var announcements: [SHCAnnouncementItem] = []
     public private(set) var quickLinks: [SHCHelpQuickLinkItem] = []
     public private(set) var faqItems: [SHCHelpFAQItem] = []
     public private(set) var lastViewedPublishedAt: Date = .distantPast
+    public private(set) var readAnnouncementIDs: Set<String> = []
     public private(set) var supportURL: URL?
     public private(set) var accentColor: Color = SHCTheme.shared.colors.accent
     public private(set) var unreadColor: Color = SHCTheme.shared.colors.danger
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
     public private(set) var isCheckingAppStoreUpdate = false
+    public private(set) var isLoadingRemoteAnnouncements = false
 
     private var defaults: UserDefaults = .standard
     private var storageKey = "SwiftHelpCenter.SHCHelpCenter.lastViewedPublishedAt"
+    private var announcementStorageKey = "SwiftHelpCenter.SHCHelpCenter.readAnnouncementIDs"
+    private var remoteAnnouncementsURL: URL?
+    private var didFetchRemoteAnnouncements = false
     private var isConfigured = false
     private var checkedAppStoreAppleID: String?
 
     public init() {}
 
-    public func configure(
-        items: [SHCVersionHistoryItem],
-        storageKey: String,
-        supportURL: URL? = nil,
-        quickLinks: [SHCHelpQuickLinkItem] = [],
-        faqItems: [SHCHelpFAQItem] = [],
-        includeDefaultFeedbackLinks: Bool = true,
-        accentColor: Color = SHCTheme.shared.colors.accent,
-        unreadColor: Color = SHCTheme.shared.colors.danger,
-        defaults: UserDefaults = .standard,
-        markExistingItemsAsReadOnFirstConfigure: Bool = true
-    ) {
-        self.items = items.sorted { $0.publishedAt > $1.publishedAt }
-        self.quickLinks = Self.mergedQuickLinks(
-            customLinks: quickLinks,
-            includeDefaultFeedbackLinks: includeDefaultFeedbackLinks
-        )
-        self.faqItems = faqItems
-        self.storageKey = storageKey
-        self.supportURL = supportURL
-        self.accentColor = accentColor
-        self.unreadColor = unreadColor
-        self.defaults = defaults
-        self.isConfigured = true
+    public func configure(_ configuration: SHCHelpCenterConfiguration) {
+        let resolvedAnnouncementStorageKey = configuration.announcements?.storageKey
+            ?? "SwiftHelpCenter.SHCHelpCenter.readAnnouncementIDs"
 
-        if let storedDate = defaults.object(forKey: storageKey) as? Date {
+        self.items = configuration.versionHistory.items.sorted { $0.publishedAt > $1.publishedAt }
+        self.announcements = Self.sortedAnnouncements(configuration.announcements?.items ?? [])
+        self.quickLinks = Self.mergedQuickLinks(
+            customLinks: configuration.quickLinks,
+            includeDefaultFeedbackLinks: configuration.includeDefaultFeedbackLinks
+        )
+        self.faqItems = configuration.faqItems
+        self.storageKey = configuration.versionHistory.storageKey
+        self.announcementStorageKey = resolvedAnnouncementStorageKey
+        self.remoteAnnouncementsURL = configuration.announcements?.remoteURL
+        self.didFetchRemoteAnnouncements = false
+        self.supportURL = configuration.supportURL
+        self.accentColor = configuration.accentColor
+        self.unreadColor = configuration.unreadColor
+        self.defaults = configuration.defaults
+        self.isConfigured = true
+        self.readAnnouncementIDs = Set(configuration.defaults.stringArray(forKey: resolvedAnnouncementStorageKey) ?? [])
+
+        if let storedDate = configuration.defaults.object(forKey: storageKey) as? Date {
             lastViewedPublishedAt = storedDate
             return
         }
 
-        if let storedTimeInterval = defaults.object(forKey: storageKey) as? TimeInterval {
+        if let storedTimeInterval = configuration.defaults.object(forKey: storageKey) as? TimeInterval {
             lastViewedPublishedAt = Date(timeIntervalSince1970: storedTimeInterval)
             return
         }
 
-        if markExistingItemsAsReadOnFirstConfigure, let latestPublishedAt {
+        if configuration.versionHistory.markExistingItemsAsReadOnFirstConfigure, let latestPublishedAt {
             saveLastViewedPublishedAt(latestPublishedAt)
         } else {
             lastViewedPublishedAt = .distantPast
@@ -232,6 +455,18 @@ public final class SHCHelpCenterManager {
 
     public var hasUnreadUpdates: Bool {
         items.contains { isUnread($0) }
+    }
+
+    public var visibleAnnouncements: [SHCAnnouncementItem] {
+        Self.sortedAnnouncements(announcements.filter { !$0.isExpired })
+    }
+
+    public var hasUnreadAnnouncements: Bool {
+        visibleAnnouncements.contains { isUnread($0) }
+    }
+
+    public var hasUnreadContent: Bool {
+        hasUnreadUpdates || hasUnreadAnnouncements
     }
 
     public var hasAppStoreUpdateAvailable: Bool {
@@ -294,25 +529,78 @@ public final class SHCHelpCenterManager {
         item.publishedAt > lastViewedPublishedAt
     }
 
+    public func isUnread(_ item: SHCAnnouncementItem) -> Bool {
+        !readAnnouncementIDs.contains(item.id)
+    }
+
     public func markAsRead(_ item: SHCVersionHistoryItem) {
         guard isConfigured else { return }
         guard item.publishedAt > lastViewedPublishedAt else { return }
         saveLastViewedPublishedAt(item.publishedAt)
     }
 
+    public func markAsRead(_ item: SHCAnnouncementItem) {
+        guard isConfigured, isUnread(item) else { return }
+        readAnnouncementIDs.insert(item.id)
+        saveReadAnnouncementIDs()
+    }
+
     public func markAllAsRead() {
-        guard isConfigured, let latestPublishedAt else { return }
-        saveLastViewedPublishedAt(latestPublishedAt)
+        guard isConfigured else { return }
+        if let latestPublishedAt {
+            saveLastViewedPublishedAt(latestPublishedAt)
+        }
+        markAllAnnouncementsAsRead()
     }
 
     public func resetReadState() {
         defaults.removeObject(forKey: storageKey)
+        defaults.removeObject(forKey: announcementStorageKey)
         lastViewedPublishedAt = .distantPast
+        readAnnouncementIDs = []
+    }
+
+    /// 按需拉取远程公告。通常由帮助中心界面自动调用，避免每次重绘都请求网络。
+    public func fetchRemoteAnnouncementsIfNeeded() async {
+        guard !didFetchRemoteAnnouncements else { return }
+        didFetchRemoteAnnouncements = true
+        await fetchRemoteAnnouncements()
+    }
+
+    /// 从 `remoteAnnouncementsURL` 拉取公告 JSON，并与本地公告按 id 合并。
+    public func fetchRemoteAnnouncements() async {
+        guard let remoteAnnouncementsURL else { return }
+
+        isLoadingRemoteAnnouncements = true
+        defer { isLoadingRemoteAnnouncements = false }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: remoteAnnouncementsURL)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                return
+            }
+            let remoteItems = try JSONDecoder().decode([SHCAnnouncementItem].self, from: data)
+            announcements = Self.mergedAnnouncements(local: announcements, remote: remoteItems)
+        } catch {
+            // Remote announcements are optional; local announcements remain available on failure.
+        }
     }
 
     private func saveLastViewedPublishedAt(_ date: Date) {
         lastViewedPublishedAt = date
         defaults.set(date, forKey: storageKey)
+    }
+
+    private func markAllAnnouncementsAsRead() {
+        let ids = visibleAnnouncements.map(\.id)
+        guard !ids.isEmpty else { return }
+        readAnnouncementIDs.formUnion(ids)
+        saveReadAnnouncementIDs()
+    }
+
+    private func saveReadAnnouncementIDs() {
+        defaults.set(Array(readAnnouncementIDs), forKey: announcementStorageKey)
     }
 
     private nonisolated static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
@@ -356,6 +644,26 @@ public final class SHCHelpCenterManager {
         }
 
         return links
+    }
+
+    private static func sortedAnnouncements(_ items: [SHCAnnouncementItem]) -> [SHCAnnouncementItem] {
+        items.sorted {
+            if $0.isPinned != $1.isPinned {
+                return $0.isPinned && !$1.isPinned
+            }
+            return $0.publishedAt > $1.publishedAt
+        }
+    }
+
+    private static func mergedAnnouncements(
+        local: [SHCAnnouncementItem],
+        remote: [SHCAnnouncementItem]
+    ) -> [SHCAnnouncementItem] {
+        var byID = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
+        for item in remote {
+            byID[item.id] = item
+        }
+        return sortedAnnouncements(Array(byID.values))
     }
 }
 
@@ -554,7 +862,7 @@ public struct SHCHelpButton: View {
             )
             .contentShape(Capsule(style: .continuous))
             .overlay(alignment: .topTrailing) {
-                if manager.hasUnreadUpdates {
+                if manager.hasUnreadContent {
                     SHCUnreadDot(color: manager.unreadColor, size: size.dotSize)
                         .offset(x: -5, y: 5)
                 }
@@ -630,7 +938,7 @@ public struct SHCHelpNavigationLink: View {
                 .foregroundStyle(iconColor)
                 .frame(width: iconSize, height: iconSize)
                 .overlay(alignment: .topTrailing) {
-                    if manager.hasUnreadUpdates {
+                    if manager.hasUnreadContent {
                         SHCUnreadDot(color: manager.unreadColor, size: dotSize)
                             .offset(x: -5, y: 5)
                     }
@@ -646,6 +954,7 @@ public struct SHCVersionHistoryListView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var manager: SHCHelpCenterManager
+    @State private var isShowingAllAnnouncements = false
 
     private let title: String
     private let subtitle: String?
@@ -664,6 +973,7 @@ public struct SHCVersionHistoryListView: View {
         ScrollView {
             SHCPageStack(maxWidth: 820) {
                 header
+                announcementsSection
                 quickLinksSection
                 versionHistorySection
                 faqSection
@@ -671,7 +981,57 @@ public struct SHCVersionHistoryListView: View {
         }
         .task {
             await manager.checkForAppStoreUpdateIfNeeded()
+            await manager.fetchRemoteAnnouncementsIfNeeded()
         }
+    }
+
+    @ViewBuilder
+    private var announcementsSection: some View {
+        let announcements = manager.visibleAnnouncements
+
+        if !announcements.isEmpty {
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
+                SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterAnnouncements))
+
+                LazyVStack(spacing: SHCTheme.shared.spacing.sm) {
+                    ForEach(visibleAnnouncementSlice(from: announcements)) { item in
+                        SHCAnnouncementRow(
+                            item: item,
+                            isUnread: manager.isUnread(item),
+                            unreadColor: manager.unreadColor,
+                            markAsRead: {
+                                manager.markAsRead(item)
+                            }
+                        )
+                    }
+                }
+
+                if announcements.count > 2 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            isShowingAllAnnouncements.toggle()
+                        }
+                    } label: {
+                        Label(
+                            isShowingAllAnnouncements
+                                ? packageL(SwiftHelpCenterL10n.helpCenterCollapseAnnouncements)
+                                : packageL(SwiftHelpCenterL10n.helpCenterViewAllAnnouncements),
+                            systemImage: isShowingAllAnnouncements ? "chevron.up" : "chevron.down"
+                        )
+                        .font(SHCTheme.shared.typography.bodyStrong)
+                        .foregroundStyle(manager.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func visibleAnnouncementSlice(from announcements: [SHCAnnouncementItem]) -> [SHCAnnouncementItem] {
+        if isShowingAllAnnouncements {
+            return announcements
+        }
+        return Array(announcements.prefix(2))
     }
 
     @ViewBuilder
@@ -822,11 +1182,11 @@ public struct SHCVersionHistoryListView: View {
             #endif
         }
 
-        if manager.hasUnreadUpdates {
+        if manager.hasUnreadContent {
             SHCHelpActionButton(role: .secondary, accentColor: manager.accentColor, action: {
                 manager.markAllAsRead()
             }) {
-                Label(packageL(SwiftHelpCenterL10n.helpCenterMarkAllRead), systemImage: "checkmark.circle")
+                Label(packageL(SwiftHelpCenterL10n.helpCenterMarkAllContentRead), systemImage: "checkmark.circle")
             }
             #if os(iOS)
             .frame(maxWidth: .infinity)
@@ -924,6 +1284,103 @@ private struct SHCHelpQuickLinkButton: View {
                       let url = URL(string: supportURL) {
                 openURL(url)
             }
+        }
+    }
+}
+
+private struct SHCAnnouncementRow: View {
+    @Environment(\.openURL) private var openURL
+    @State private var isExpanded = false
+
+    let item: SHCAnnouncementItem
+    let isUnread: Bool
+    let unreadColor: Color
+    let markAsRead: () -> Void
+
+    var body: some View {
+        SHCGroup(padding: SHCTheme.shared.spacing.md, showsBorder: isUnread) {
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        isExpanded.toggle()
+                    }
+                    markAsRead()
+                } label: {
+                    HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                        Image(systemName: item.level.systemImage)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(levelColor)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                                    .fill(levelColor.opacity(0.12))
+                            )
+
+                        VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.xs) {
+                                if item.isPinned {
+                                    SHCUnreadBadge(
+                                        text: packageL(SwiftHelpCenterL10n.helpCenterPinned),
+                                        color: levelColor
+                                    )
+                                }
+
+                                Text(item.title)
+                                    .font(SHCTheme.shared.typography.bodyStrong)
+                                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                if isUnread {
+                                    SHCUnreadBadge(text: packageL(SwiftHelpCenterL10n.helpCenterNew), color: unreadColor)
+                                }
+                            }
+
+                            Text(item.message)
+                                .font(SHCTheme.shared.typography.body)
+                                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                                .lineLimit(isExpanded ? nil : 2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: SHCTheme.shared.spacing.xs)
+
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
+                            .padding(.top, SHCTheme.shared.spacing.xxs)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if isExpanded, let linkURL = item.linkURL {
+                    SHCHelpActionButton(role: .soft, accentColor: levelColor, action: {
+                        markAsRead()
+                        openURL(linkURL)
+                    }) {
+                        Label(
+                            item.linkTitle ?? packageL(SwiftHelpCenterL10n.helpCenterViewDetails),
+                            systemImage: "arrow.up.right"
+                        )
+                    }
+                    #if os(iOS)
+                    .frame(maxWidth: .infinity)
+                    #endif
+                }
+            }
+        }
+    }
+
+    private var levelColor: Color {
+        switch item.level {
+        case .info:
+            return SHCTheme.shared.colors.accent
+        case .success:
+            return SHCTheme.shared.colors.success
+        case .warning:
+            return SHCTheme.shared.colors.warning
+        case .critical:
+            return SHCTheme.shared.colors.danger
         }
     }
 }

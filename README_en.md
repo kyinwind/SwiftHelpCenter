@@ -6,6 +6,10 @@ SwiftHelpCenter is an open-source Swift Package that helps you quickly add help 
 user feedback, internationalization with manual language switching, review prompt management,
 and a fully-featured Design System to your app.
 
+It is not a replacement for your app's Settings screen. It is an in-app help center toolkit
+focused on user communication. If you want one place for announcements, release notes,
+tutorial videos, support links, feedback, and review prompts, SwiftHelpCenter gives you a reusable starting point.
+
 ---
 
 ## Table of Contents
@@ -23,7 +27,7 @@ and a fully-featured Design System to your app.
 
 | Module | Description |
 |--------|-------------|
-| **HelpCenter** | Version history, quick links, FAQ, video link management — one window to show it all |
+| **HelpCenter** | Announcements, version history, quick links, FAQ, video links — one window to show it all |
 | **FeedbackManager** | Multi-channel feedback (Discord / DingTalk / Email) with screenshot attachments (macOS) |
 | **Localization** | Manual language switching framework (zh-Hans / English) with SwiftUI integration |
 | **ReviewPromptManager** | Dual-threshold review prompt based on click count and days of usage |
@@ -44,15 +48,22 @@ management. Ideal for your app's menu bar Help button or Settings page entry.
 import SwiftHelpCenter
 
 // Configure at app launch
-SHCHelpCenterManager.shared.configure(
-    items: versionHistoryItems,
-    storageKey: "com.myapp.helpCenter.lastViewed",
+SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+    versionHistory: SHCVersionHistoryConfiguration(
+        items: versionHistoryItems,
+        storageKey: "com.myapp.helpCenter.versionRead"
+    ),
+    announcements: SHCAnnouncementConfiguration(
+        items: announcementItems,
+        storageKey: "com.myapp.helpCenter.announcementRead",
+        remoteURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/announcements.json")
+    ),
     supportURL: URL(string: "https://example.com/support"),
     quickLinks: quickLinks,
     faqItems: faqItems,
     accentColor: .orange,
     unreadColor: .red
-)
+))
 ```
 
 **2. Add toolbar button**
@@ -99,6 +110,40 @@ SHCVersionHistoryItem(
 
 Accepts both `Date` and `String` date formats. Video links use `[SHCHelpVideoLink]` array — any platform supported.
 
+**SHCAnnouncementItem** — Announcement entry
+
+```swift
+SHCAnnouncementItem(
+    id: "notice-2026-06-03",
+    title: "Maintenance Notice",
+    message: "A short maintenance window is scheduled tonight.",
+    publishedAtString: "2026-06-03",
+    level: .warning,
+    linkTitle: "View Details",
+    linkURL: URL(string: "https://example.com/notice"),
+    isPinned: true
+)
+```
+
+Announcements appear near the top of the help center, before quick links. The unread dot responds to both unread announcements and unread version updates.
+
+Remote announcement JSON can be hosted on GitHub Raw, your website, or any reachable HTTPS endpoint:
+
+```json
+[
+  {
+    "id": "notice-2026-06-03",
+    "title": "Maintenance Notice",
+    "message": "A short maintenance window is scheduled tonight.",
+    "publishedAt": "2026-06-03",
+    "level": "warning",
+    "linkTitle": "View Details",
+    "linkURL": "https://example.com/notice",
+    "isPinned": true
+  }
+]
+```
+
 **SHCHelpQuickLinkItem** — Quick link card
 
 ```swift
@@ -141,6 +186,8 @@ manager.isUnread(item)           // Check if a version is unread
 manager.markAsRead(item)         // Mark single item as read
 manager.markAllAsRead()          // Mark all as read
 manager.hasUnreadUpdates         // Check for unread updates
+manager.hasUnreadAnnouncements   // Check for unread announcements
+manager.hasUnreadContent         // Check for any unread help center content
 manager.resetReadState()         // Reset all read state
 ```
 

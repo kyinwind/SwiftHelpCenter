@@ -177,6 +177,70 @@ func appStoreLookupParsing() throws {
     #expect(info.releaseNotes == "Bug fixes")
 }
 
+@Test("Announcement parses flexible JSON dates")
+func announcementJSONParsing() throws {
+    let json = """
+    [
+      {
+        "id": "notice-1",
+        "title": "Maintenance",
+        "message": "Short maintenance window.",
+        "publishedAt": "2026-06-03",
+        "level": "warning",
+        "linkTitle": "Read More",
+        "linkURL": "https://example.com/notice",
+        "isPinned": true,
+        "expiresAt": "2026-12-31T00:00:00Z"
+      }
+    ]
+    """.data(using: .utf8)!
+
+    let items = try JSONDecoder().decode([SHCAnnouncementItem].self, from: json)
+    let item = try #require(items.first)
+
+    #expect(item.id == "notice-1")
+    #expect(item.level == .warning)
+    #expect(item.isPinned == true)
+    #expect(item.linkURL?.absoluteString == "https://example.com/notice")
+    #expect(item.expiresAt != nil)
+}
+
+@MainActor
+@Test("HelpCenter tracks unread announcements separately")
+func announcementUnreadState() {
+    let defaults = UserDefaults(suiteName: "SwiftHelpCenterTests.announcements")!
+    defaults.removePersistentDomain(forName: "SwiftHelpCenterTests.announcements")
+
+    let announcement = SHCAnnouncementItem(
+        id: "notice-unread",
+        title: "Notice",
+        message: "Message",
+        publishedAt: Date()
+    )
+
+    SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+        versionHistory: SHCVersionHistoryConfiguration(
+            items: [],
+            storageKey: "test.version.read",
+            markExistingItemsAsReadOnFirstConfigure: false
+        ),
+        announcements: SHCAnnouncementConfiguration(
+            items: [announcement],
+            storageKey: "test.announcement.read"
+        ),
+        defaults: defaults
+    ))
+
+    #expect(SHCHelpCenterManager.shared.hasUnreadUpdates == false)
+    #expect(SHCHelpCenterManager.shared.hasUnreadAnnouncements == true)
+    #expect(SHCHelpCenterManager.shared.hasUnreadContent == true)
+
+    SHCHelpCenterManager.shared.markAllAsRead()
+
+    #expect(SHCHelpCenterManager.shared.hasUnreadAnnouncements == false)
+    #expect(SHCHelpCenterManager.shared.hasUnreadContent == false)
+}
+
 // MARK: - Localization: SHCLocalization
 
 @Test("Localization returns key as fallback for missing strings")

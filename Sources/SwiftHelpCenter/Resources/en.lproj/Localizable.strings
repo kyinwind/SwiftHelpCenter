@@ -1,6 +1,7 @@
 "SHCHelpCenter.help" = "Help";
 "SHCHelpCenter.title" = "Help Center";
 "SHCHelpCenter.quickLinks" = "Quick Links";
+"SHCHelpCenter.announcements" = "Announcements";
 "SHCHelpCenter.feedback" = "Send Feedback";
 "SHCHelpCenter.rate" = "Rate App";
 "SHCHelpCenter.faq" = "FAQ";
@@ -13,6 +14,11 @@
 "SHCHelpCenter.updateApp" = "Update App";
 "SHCHelpCenter.openSupport" = "Open Support";
 "SHCHelpCenter.markAllRead" = "Mark as Read";
+"SHCHelpCenter.markAllContentRead" = "Mark All Read";
+"SHCHelpCenter.pinned" = "Pinned";
+"SHCHelpCenter.viewDetails" = "View Details";
+"SHCHelpCenter.viewAllAnnouncements" = "View All Announcements";
+"SHCHelpCenter.collapseAnnouncements" = "Collapse Announcements";
 "FeedbackView.title" = "Feedback";
 "FeedbackView.rate" = "Rate App";
 "FeedbackView.techSupport" = "Technical Support";

@@ -48,15 +48,36 @@ private enum SHCHelpCenterPreviewData {
             appName: "Preview App"
         )
 
-        manager.configure(
-            items: items,
-            storageKey: "SwiftHelpCenter.SHCHelpCenterPreview.lastViewedPublishedAt",
+        manager.configure(SHCHelpCenterConfiguration(
+            versionHistory: SHCVersionHistoryConfiguration(
+                items: items,
+                storageKey: "SwiftHelpCenter.SHCHelpCenterPreview.lastViewedPublishedAt",
+                markExistingItemsAsReadOnFirstConfigure: false
+            ),
+            announcements: SHCAnnouncementConfiguration(
+                items: announcements,
+                storageKey: "SwiftHelpCenter.SHCHelpCenterPreview.readAnnouncementIDs"
+            ),
             supportURL: URL(string: "https://example.com/support"),
             quickLinks: quickLinks,
             faqItems: faqItems,
-            unreadColor: .blue,
-            markExistingItemsAsReadOnFirstConfigure: false
-        )
+            unreadColor: .blue
+        ))
+    }
+
+    private static var announcements: [SHCAnnouncementItem] {
+        [
+            SHCAnnouncementItem(
+                id: "preview-announcement",
+                title: "Maintenance Notice",
+                message: "This is a sample announcement shown near the top of the help center.",
+                publishedAt: Date(),
+                level: .info,
+                linkTitle: "View Details",
+                linkURL: URL(string: "https://example.com/notice"),
+                isPinned: true
+            )
+        ]
     }
 
     private static var quickLinks: [SHCHelpQuickLinkItem] {
