@@ -1,0 +1,33 @@
+[
+  {
+    "id": "welcome-help-center",
+    "title": "欢迎使用帮助中心",
+    "message": "这里会展示产品公告、重要提醒和与用户沟通相关的内容。你可以把这个 JSON 文件发布到 GitHub Raw，然后在帮助中心配置 remoteURL。",
+    "publishedAt": "2026-06-03",
+    "level": "info",
+    "linkTitle": "查看项目",
+    "linkURL": "https://github.com/your-name/SwiftHelpCenter",
+    "isPinned": true
+  },
+  {
+    "id": "version-1-1-roadmap",
+    "title": "下个版本计划",
+    "message": "我们正在准备 What’s New 更新弹窗和更完整的公告能力，让开发者可以更轻松地向用户说明每次更新。",
+    "publishedAt": "2026-06-02",
+    "level": "success",
+    "linkTitle": "查看路线图",
+    "linkURL": "https://github.com/your-name/SwiftHelpCenter/blob/main/docs/positioning-and-roadmap.zh.md",
+    "isPinned": false
+  },
+  {
+    "id": "scheduled-maintenance-2026-06",
+    "title": "技术支持服务维护提醒",
+    "message": "技术支持页面将在 2026 年 6 月 8 日 00:00 到 02:00 短暂维护。维护期间，用户仍然可以通过邮件渠道提交反馈。",
+    "publishedAt": "2026-06-01",
+    "level": "warning",
+    "linkTitle": "了解详情",
+    "linkURL": "https://example.com/support/maintenance",
+    "isPinned": false,
+    "expiresAt": "2026-06-09"
+  }
+]

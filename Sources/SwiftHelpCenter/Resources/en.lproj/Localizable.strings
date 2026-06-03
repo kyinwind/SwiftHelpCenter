@@ -19,6 +19,15 @@
 "SHCHelpCenter.viewDetails" = "View Details";
 "SHCHelpCenter.viewAllAnnouncements" = "View All Announcements";
 "SHCHelpCenter.collapseAnnouncements" = "Collapse Announcements";
+"SHCHelpCenter.announcementCount" = "%d total";
+"SHCHelpCenter.unreadAnnouncementCount" = "%d unread";
+"SHCHelpCenter.versionCount" = "%d versions";
+"SHCHelpCenter.unreadVersionCount" = "%d unread versions";
+"SHCHelpCenter.collapseVersionHistory" = "Collapse Version History";
+"SHCHelpCenter.announcementLevel.info" = "Info";
+"SHCHelpCenter.announcementLevel.success" = "Done";
+"SHCHelpCenter.announcementLevel.warning" = "Notice";
+"SHCHelpCenter.announcementLevel.critical" = "Important";
 "FeedbackView.title" = "Feedback";
 "FeedbackView.rate" = "Rate App";
 "FeedbackView.techSupport" = "Technical Support";

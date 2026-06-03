@@ -19,6 +19,15 @@
 "SHCHelpCenter.viewDetails" = "查看详情";
 "SHCHelpCenter.viewAllAnnouncements" = "查看全部公告";
 "SHCHelpCenter.collapseAnnouncements" = "收起公告";
+"SHCHelpCenter.announcementCount" = "共 %d 条";
+"SHCHelpCenter.unreadAnnouncementCount" = "%d 条未读";
+"SHCHelpCenter.versionCount" = "共 %d 个版本";
+"SHCHelpCenter.unreadVersionCount" = "%d 个版本未读";
+"SHCHelpCenter.collapseVersionHistory" = "收起版本历史";
+"SHCHelpCenter.announcementLevel.info" = "公告";
+"SHCHelpCenter.announcementLevel.success" = "完成";
+"SHCHelpCenter.announcementLevel.warning" = "提醒";
+"SHCHelpCenter.announcementLevel.critical" = "重要";
 "FeedbackView.title" = "反馈意见";
 "FeedbackView.rate" = "给应用评分";
 "FeedbackView.techSupport" = "技术支持";

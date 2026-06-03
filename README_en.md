@@ -49,6 +49,7 @@ import SwiftHelpCenter
 
 // Configure at app launch
 SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+    appleID: "1234567890",
     versionHistory: SHCVersionHistoryConfiguration(
         items: versionHistoryItems,
         storageKey: "com.myapp.helpCenter.versionRead"
@@ -129,6 +130,20 @@ Announcements appear near the top of the help center, before quick links. The un
 
 Remote announcement JSON can be hosted on GitHub Raw, your website, or any reachable HTTPS endpoint:
 
+```swift
+SHCAnnouncementConfiguration(
+    items: [],
+    storageKey: "com.myapp.helpCenter.readAnnouncementIDs",
+    remoteURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/announcements.json")
+)
+```
+
+When hosting announcements on GitHub, use the `raw.githubusercontent.com` raw file URL, not a `github.com/.../blob/...` page URL. `storageKey` stores read announcement IDs, so each app should use its own key.
+
+For sandboxed macOS / Mac Catalyst apps, enable `com.apple.security.network.client` in entitlements; otherwise the system can block remote announcement requests.
+
+`appleID` is required. It is used to check App Store updates, open the update page, and jump to App Store review. After `configure`, SwiftHelpCenter automatically attempts one remote announcement fetch and one App Store update check. The help center view also performs a fallback refresh when opened, so the entry unread dot can reflect announcements or available updates soon after app launch.
+
 ```json
 [
   {
@@ -143,6 +158,8 @@ Remote announcement JSON can be hosted on GitHub Raw, your website, or any reach
   }
 ]
 ```
+
+`level` supports `info`, `success`, `warning`, and `critical`. See [examples/announcements.sample.json](examples/announcements.sample.json) for a fuller sample.
 
 **SHCHelpQuickLinkItem** — Quick link card
 
@@ -160,6 +177,8 @@ SHCHelpQuickLinkItem.feedback()          // Open feedback window
 SHCHelpQuickLinkItem.appStoreReview()    // Open App Store review
 SHCHelpQuickLinkItem.support()           // Open support URL
 ```
+
+By default, the help center shows “Rate App” because `appleID` is required. It also shows “Feedback” when `FeedbackManager` is configured. Use `quickLinks` for your own extra entries; set `includeDefaultQuickLinks: false` in `SHCHelpCenterConfiguration` when you want full control.
 
 **SHCHelpFAQItem** — FAQ entry
 

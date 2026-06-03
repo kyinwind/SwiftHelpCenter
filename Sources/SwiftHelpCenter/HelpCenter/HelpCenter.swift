@@ -175,6 +175,15 @@ public enum SHCAnnouncementLevel: String, Codable, Hashable, Sendable {
         case .critical: return "exclamationmark.octagon"
         }
     }
+
+    var localizationKey: String {
+        switch self {
+        case .info: return SwiftHelpCenterL10n.helpCenterAnnouncementLevelInfo
+        case .success: return SwiftHelpCenterL10n.helpCenterAnnouncementLevelSuccess
+        case .warning: return SwiftHelpCenterL10n.helpCenterAnnouncementLevelWarning
+        case .critical: return SwiftHelpCenterL10n.helpCenterAnnouncementLevelCritical
+        }
+    }
 }
 
 /// 帮助中心公告。适合展示维护通知、已知问题、新教程、活动提醒等开发者主动沟通内容。
@@ -347,33 +356,36 @@ public struct SHCAnnouncementConfiguration: Sendable {
 }
 
 public struct SHCHelpCenterConfiguration {
+    public var appleID: String
     public var versionHistory: SHCVersionHistoryConfiguration
     public var announcements: SHCAnnouncementConfiguration?
     public var supportURL: URL?
     public var quickLinks: [SHCHelpQuickLinkItem]
     public var faqItems: [SHCHelpFAQItem]
-    public var includeDefaultFeedbackLinks: Bool
+    public var includeDefaultQuickLinks: Bool
     public var accentColor: Color
     public var unreadColor: Color
     public var defaults: UserDefaults
 
     public init(
+        appleID: String,
         versionHistory: SHCVersionHistoryConfiguration,
         announcements: SHCAnnouncementConfiguration? = nil,
         supportURL: URL? = nil,
         quickLinks: [SHCHelpQuickLinkItem] = [],
         faqItems: [SHCHelpFAQItem] = [],
-        includeDefaultFeedbackLinks: Bool = true,
+        includeDefaultQuickLinks: Bool = true,
         accentColor: Color = SHCTheme.shared.colors.accent,
         unreadColor: Color = SHCTheme.shared.colors.danger,
         defaults: UserDefaults = .standard
     ) {
         self.versionHistory = versionHistory
+        self.appleID = appleID
         self.announcements = announcements
         self.supportURL = supportURL
         self.quickLinks = quickLinks
         self.faqItems = faqItems
-        self.includeDefaultFeedbackLinks = includeDefaultFeedbackLinks
+        self.includeDefaultQuickLinks = includeDefaultQuickLinks
         self.accentColor = accentColor
         self.unreadColor = unreadColor
         self.defaults = defaults
@@ -394,6 +406,7 @@ public final class SHCHelpCenterManager {
     public private(set) var lastViewedPublishedAt: Date = .distantPast
     public private(set) var readAnnouncementIDs: Set<String> = []
     public private(set) var supportURL: URL?
+    public private(set) var appleID: String = ""
     public private(set) var accentColor: Color = SHCTheme.shared.colors.accent
     public private(set) var unreadColor: Color = SHCTheme.shared.colors.danger
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
@@ -418,7 +431,7 @@ public final class SHCHelpCenterManager {
         self.announcements = Self.sortedAnnouncements(configuration.announcements?.items ?? [])
         self.quickLinks = Self.mergedQuickLinks(
             customLinks: configuration.quickLinks,
-            includeDefaultFeedbackLinks: configuration.includeDefaultFeedbackLinks
+            includeDefaultQuickLinks: configuration.includeDefaultQuickLinks
         )
         self.faqItems = configuration.faqItems
         self.storageKey = configuration.versionHistory.storageKey
@@ -426,6 +439,7 @@ public final class SHCHelpCenterManager {
         self.remoteAnnouncementsURL = configuration.announcements?.remoteURL
         self.didFetchRemoteAnnouncements = false
         self.supportURL = configuration.supportURL
+        self.appleID = configuration.appleID
         self.accentColor = configuration.accentColor
         self.unreadColor = configuration.unreadColor
         self.defaults = configuration.defaults
@@ -434,18 +448,16 @@ public final class SHCHelpCenterManager {
 
         if let storedDate = configuration.defaults.object(forKey: storageKey) as? Date {
             lastViewedPublishedAt = storedDate
-            return
-        }
-
-        if let storedTimeInterval = configuration.defaults.object(forKey: storageKey) as? TimeInterval {
+        } else if let storedTimeInterval = configuration.defaults.object(forKey: storageKey) as? TimeInterval {
             lastViewedPublishedAt = Date(timeIntervalSince1970: storedTimeInterval)
-            return
-        }
-
-        if configuration.versionHistory.markExistingItemsAsReadOnFirstConfigure, let latestPublishedAt {
+        } else if configuration.versionHistory.markExistingItemsAsReadOnFirstConfigure, let latestPublishedAt {
             saveLastViewedPublishedAt(latestPublishedAt)
         } else {
             lastViewedPublishedAt = .distantPast
+        }
+
+        Task { @MainActor [weak self] in
+            await self?.refreshRemoteContentIfNeeded()
         }
     }
 
@@ -481,8 +493,8 @@ public final class SHCHelpCenterManager {
         appleID: String? = nil,
         countryCode: String? = nil
     ) async {
-        let resolvedAppleID = appleID ?? FeedbackManager.shared.config?.appleID
-        guard let resolvedAppleID, !resolvedAppleID.isEmpty else { return }
+        let resolvedAppleID = appleID ?? self.appleID
+        guard !resolvedAppleID.isEmpty else { return }
         guard checkedAppStoreAppleID != resolvedAppleID else { return }
 
         checkedAppStoreAppleID = resolvedAppleID
@@ -511,8 +523,8 @@ public final class SHCHelpCenterManager {
     public func openAppStoreUpdatePage(appleID: String? = nil) {
         let resolvedAppleID = appleID
             ?? appStoreVersionInfo?.appleID
-            ?? FeedbackManager.shared.config?.appleID
-        guard let resolvedAppleID, !resolvedAppleID.isEmpty else { return }
+            ?? self.appleID
+        guard !resolvedAppleID.isEmpty else { return }
 
         AppStoreHelper.openAppStorePage(appleID: resolvedAppleID)
     }
@@ -558,6 +570,14 @@ public final class SHCHelpCenterManager {
         defaults.removeObject(forKey: announcementStorageKey)
         lastViewedPublishedAt = .distantPast
         readAnnouncementIDs = []
+    }
+
+    /// 刷新会影响帮助中心入口状态的远程内容。配置完成后会自动调用一次，
+    /// App 也可以在进入前台等时机手动调用，帮助中心界面打开时会再次兜底调用。
+    public func refreshRemoteContentIfNeeded() async {
+        async let updateCheck: Void = checkForAppStoreUpdateIfNeeded()
+        async let announcementFetch: Void = fetchRemoteAnnouncementsIfNeeded()
+        _ = await (updateCheck, announcementFetch)
     }
 
     /// 按需拉取远程公告。通常由帮助中心界面自动调用，避免每次重绘都请求网络。
@@ -627,22 +647,23 @@ public final class SHCHelpCenterManager {
 
     private static func mergedQuickLinks(
         customLinks: [SHCHelpQuickLinkItem],
-        includeDefaultFeedbackLinks: Bool
+        includeDefaultQuickLinks: Bool
     ) -> [SHCHelpQuickLinkItem] {
-        var links = customLinks
+        guard includeDefaultQuickLinks else { return customLinks }
 
-        guard includeDefaultFeedbackLinks, FeedbackManager.shared.isConfigured else {
-            return links
-        }
+        var links: [SHCHelpQuickLinkItem] = []
 
-        if !links.contains(where: { $0.action == .feedback }) {
+        // Feedback only appears when the feedback module is configured.
+        if FeedbackManager.shared.isConfigured, !customLinks.contains(where: { $0.action == .feedback }) {
             links.append(.feedback())
         }
 
-        if !links.contains(where: { $0.action == .appStoreReview }) {
+        // appleID is required by the help center, so App Store review is always available by default.
+        if !customLinks.contains(where: { $0.action == .appStoreReview }) {
             links.append(.appStoreReview())
         }
 
+        links.append(contentsOf: customLinks)
         return links
     }
 
@@ -955,6 +976,7 @@ public struct SHCVersionHistoryListView: View {
 
     @State private var manager: SHCHelpCenterManager
     @State private var isShowingAllAnnouncements = false
+    @State private var isShowingAllVersionHistory = false
 
     private let title: String
     private let subtitle: String?
@@ -980,8 +1002,7 @@ public struct SHCVersionHistoryListView: View {
             }
         }
         .task {
-            await manager.checkForAppStoreUpdateIfNeeded()
-            await manager.fetchRemoteAnnouncementsIfNeeded()
+            await manager.refreshRemoteContentIfNeeded()
         }
     }
 
@@ -993,30 +1014,42 @@ public struct SHCVersionHistoryListView: View {
             VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
                 SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterAnnouncements))
 
-                LazyVStack(spacing: SHCTheme.shared.spacing.sm) {
-                    ForEach(visibleAnnouncementSlice(from: announcements)) { item in
-                        SHCAnnouncementRow(
-                            item: item,
-                            isUnread: manager.isUnread(item),
-                            unreadColor: manager.unreadColor,
-                            markAsRead: {
-                                manager.markAsRead(item)
-                            }
-                        )
+                if isShowingAllAnnouncements || announcements.count == 1 {
+                    LazyVStack(spacing: SHCTheme.shared.spacing.sm) {
+                        ForEach(announcements) { item in
+                            SHCAnnouncementRow(
+                                item: item,
+                                isUnread: manager.isUnread(item),
+                                unreadColor: manager.unreadColor,
+                                markAsRead: {
+                                    manager.markAsRead(item)
+                                }
+                            )
+                        }
                     }
+                } else if let featured = featuredAnnouncement(from: announcements) {
+                    SHCAnnouncementSummaryRow(
+                        item: featured,
+                        isUnread: manager.isUnread(featured),
+                        unreadColor: manager.unreadColor,
+                        summaryText: announcementSummaryText(from: announcements),
+                        expand: {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                isShowingAllAnnouncements = true
+                            }
+                        }
+                    )
                 }
 
-                if announcements.count > 2 {
+                if isShowingAllAnnouncements, announcements.count > 1 {
                     Button {
                         withAnimation(.easeInOut(duration: 0.16)) {
-                            isShowingAllAnnouncements.toggle()
+                            isShowingAllAnnouncements = false
                         }
                     } label: {
                         Label(
-                            isShowingAllAnnouncements
-                                ? packageL(SwiftHelpCenterL10n.helpCenterCollapseAnnouncements)
-                                : packageL(SwiftHelpCenterL10n.helpCenterViewAllAnnouncements),
-                            systemImage: isShowingAllAnnouncements ? "chevron.up" : "chevron.down"
+                            packageL(SwiftHelpCenterL10n.helpCenterCollapseAnnouncements),
+                            systemImage: "chevron.up"
                         )
                         .font(SHCTheme.shared.typography.bodyStrong)
                         .foregroundStyle(manager.accentColor)
@@ -1027,11 +1060,28 @@ public struct SHCVersionHistoryListView: View {
         }
     }
 
-    private func visibleAnnouncementSlice(from announcements: [SHCAnnouncementItem]) -> [SHCAnnouncementItem] {
-        if isShowingAllAnnouncements {
-            return announcements
+    private func featuredAnnouncement(from announcements: [SHCAnnouncementItem]) -> SHCAnnouncementItem? {
+        let unreadAnnouncements = announcements.filter { manager.isUnread($0) }
+
+        // The folded card should represent the announcement most worth opening now.
+        if let unreadPinned = unreadAnnouncements.first(where: { $0.isPinned }) {
+            return unreadPinned
         }
-        return Array(announcements.prefix(2))
+        if let unreadLatest = unreadAnnouncements.max(by: { $0.publishedAt < $1.publishedAt }) {
+            return unreadLatest
+        }
+        if let pinned = announcements.first(where: { $0.isPinned }) {
+            return pinned
+        }
+        return announcements.max(by: { $0.publishedAt < $1.publishedAt })
+    }
+
+    private func announcementSummaryText(from announcements: [SHCAnnouncementItem]) -> String {
+        let unreadCount = announcements.filter { manager.isUnread($0) }.count
+        if unreadCount > 0 {
+            return packageL(SwiftHelpCenterL10n.helpCenterUnreadAnnouncementCount, unreadCount)
+        }
+        return packageL(SwiftHelpCenterL10n.helpCenterAnnouncementCount, announcements.count)
     }
 
     @ViewBuilder
@@ -1068,8 +1118,9 @@ public struct SHCVersionHistoryListView: View {
                     )
                 }
             } else {
-                LazyVStack(spacing: SHCTheme.shared.spacing.md) {
-                    ForEach(manager.items) { item in
+                if isShowingAllVersionHistory || manager.items.count == 1 {
+                    LazyVStack(spacing: SHCTheme.shared.spacing.md) {
+                        ForEach(manager.items) { item in
                             SHCVersionHistoryRow(
                                 item: item,
                                 isUnread: manager.isUnread(item),
@@ -1077,12 +1128,57 @@ public struct SHCVersionHistoryListView: View {
                                 unreadColor: manager.unreadColor,
                                 markAsRead: {
                                     manager.markAsRead(item)
-                            }
-                        )
+                                }
+                            )
+                        }
                     }
+
+                    if isShowingAllVersionHistory, manager.items.count > 1 {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                isShowingAllVersionHistory = false
+                            }
+                        } label: {
+                            Label(
+                                packageL(SwiftHelpCenterL10n.helpCenterCollapseVersionHistory),
+                                systemImage: "chevron.up"
+                            )
+                            .font(SHCTheme.shared.typography.bodyStrong)
+                            .foregroundStyle(manager.accentColor)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } else if let featured = featuredVersionHistoryItem(from: manager.items) {
+                    SHCVersionHistorySummaryRow(
+                        item: featured,
+                        isUnread: manager.isUnread(featured),
+                        accentColor: manager.accentColor,
+                        unreadColor: manager.unreadColor,
+                        summaryText: versionHistorySummaryText(from: manager.items),
+                        expand: {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                isShowingAllVersionHistory = true
+                            }
+                        }
+                    )
                 }
             }
         }
+    }
+
+    private func featuredVersionHistoryItem(from items: [SHCVersionHistoryItem]) -> SHCVersionHistoryItem? {
+        if let unreadLatest = items.filter({ manager.isUnread($0) }).max(by: { $0.publishedAt < $1.publishedAt }) {
+            return unreadLatest
+        }
+        return items.max(by: { $0.publishedAt < $1.publishedAt })
+    }
+
+    private func versionHistorySummaryText(from items: [SHCVersionHistoryItem]) -> String {
+        let unreadCount = items.filter { manager.isUnread($0) }.count
+        if unreadCount > 0 {
+            return packageL(SwiftHelpCenterL10n.helpCenterUnreadVersionCount, unreadCount)
+        }
+        return packageL(SwiftHelpCenterL10n.helpCenterVersionCount, items.count)
     }
 
     @ViewBuilder
@@ -1274,14 +1370,11 @@ private struct SHCHelpQuickLinkButton: View {
             isShowingFeedback = true
 #endif
         case .appStoreReview:
-            if let appleID = FeedbackManager.shared.config?.appleID {
-                AppStoreHelper.rateApp(appleID: appleID)
+            if !manager.appleID.isEmpty {
+                AppStoreHelper.rateApp(appleID: manager.appleID)
             }
         case .support:
             if let url = manager.supportURL {
-                openURL(url)
-            } else if let supportURL = FeedbackManager.shared.config?.supportURL,
-                      let url = URL(string: supportURL) {
                 openURL(url)
             }
         }
@@ -1324,6 +1417,8 @@ private struct SHCAnnouncementRow: View {
                                         color: levelColor
                                     )
                                 }
+
+                                SHCUnreadBadge(text: packageL(item.level.localizationKey), color: levelColor)
 
                                 Text(item.title)
                                     .font(SHCTheme.shared.typography.bodyStrong)
@@ -1368,6 +1463,86 @@ private struct SHCAnnouncementRow: View {
                     #endif
                 }
             }
+        }
+    }
+
+    private var levelColor: Color {
+        switch item.level {
+        case .info:
+            return SHCTheme.shared.colors.accent
+        case .success:
+            return SHCTheme.shared.colors.success
+        case .warning:
+            return SHCTheme.shared.colors.warning
+        case .critical:
+            return SHCTheme.shared.colors.danger
+        }
+    }
+}
+
+private struct SHCAnnouncementSummaryRow: View {
+    let item: SHCAnnouncementItem
+    let isUnread: Bool
+    let unreadColor: Color
+    let summaryText: String
+    let expand: () -> Void
+
+    var body: some View {
+        SHCGroup(padding: SHCTheme.shared.spacing.md, showsBorder: isUnread) {
+            Button(action: expand) {
+                HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                    Image(systemName: item.level.systemImage)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(levelColor)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                                .fill(levelColor.opacity(0.12))
+                        )
+
+                    VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                        HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.xs) {
+                            if item.isPinned {
+                                SHCUnreadBadge(
+                                    text: packageL(SwiftHelpCenterL10n.helpCenterPinned),
+                                    color: levelColor
+                                )
+                            }
+
+                            SHCUnreadBadge(text: packageL(item.level.localizationKey), color: levelColor)
+
+                            Text(item.title)
+                                .font(SHCTheme.shared.typography.bodyStrong)
+                                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if isUnread {
+                                SHCUnreadDot(color: unreadColor, size: 7)
+                            }
+                        }
+
+                        Text(item.message)
+                            .font(SHCTheme.shared.typography.body)
+                            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: SHCTheme.shared.spacing.xs)
+
+                    HStack(spacing: SHCTheme.shared.spacing.xs) {
+                        SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : levelColor)
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
+                    }
+                    .padding(.top, SHCTheme.shared.spacing.xxs)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -1539,6 +1714,98 @@ private struct SHCVersionHistoryRow: View {
                 .frame(maxWidth: .infinity)
                 #endif
             }
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        date.formatted(.dateTime.year().month().day())
+    }
+}
+
+private struct SHCVersionHistorySummaryRow: View {
+    let item: SHCVersionHistoryItem
+    let isUnread: Bool
+    let accentColor: Color
+    let unreadColor: Color
+    let summaryText: String
+    let expand: () -> Void
+
+    var body: some View {
+        SHCGroup(showsBorder: isUnread) {
+            Button(action: expand) {
+                HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                                .fill(accentColor.opacity(0.12))
+                        )
+
+                    VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+                                versionTitle
+                                versionDate
+                            }
+
+                            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                                versionTitle
+                                versionDate
+                            }
+                        }
+
+                        Text(firstChangeSummary)
+                            .font(SHCTheme.shared.typography.body)
+                            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: SHCTheme.shared.spacing.xs)
+
+                    HStack(spacing: SHCTheme.shared.spacing.xs) {
+                        SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : accentColor)
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
+                    }
+                    .padding(.top, SHCTheme.shared.spacing.xxs)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var versionTitle: some View {
+        HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+            if isUnread {
+                SHCUnreadDot(color: unreadColor)
+            }
+
+            Text(item.versionName)
+                .font(SHCTheme.shared.typography.bodyStrong)
+                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+
+            if isUnread {
+                SHCUnreadBadge(text: packageL(SwiftHelpCenterL10n.helpCenterNew), color: unreadColor)
+            }
+        }
+    }
+
+    private var versionDate: some View {
+        Text(formattedDate(item.publishedAt))
+            .font(SHCTheme.shared.typography.caption)
+            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+    }
+
+    private var firstChangeSummary: String {
+        item.changes
+            .split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first(where: { !$0.isEmpty }) ?? item.changes
     }
 
     private func formattedDate(_ date: Date) -> String {

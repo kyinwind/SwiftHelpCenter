@@ -37,6 +37,15 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterViewDetails = "SHCHelpCenter.viewDetails"
     public static let helpCenterViewAllAnnouncements = "SHCHelpCenter.viewAllAnnouncements"
     public static let helpCenterCollapseAnnouncements = "SHCHelpCenter.collapseAnnouncements"
+    public static let helpCenterAnnouncementCount = "SHCHelpCenter.announcementCount"
+    public static let helpCenterUnreadAnnouncementCount = "SHCHelpCenter.unreadAnnouncementCount"
+    public static let helpCenterVersionCount = "SHCHelpCenter.versionCount"
+    public static let helpCenterUnreadVersionCount = "SHCHelpCenter.unreadVersionCount"
+    public static let helpCenterCollapseVersionHistory = "SHCHelpCenter.collapseVersionHistory"
+    public static let helpCenterAnnouncementLevelInfo = "SHCHelpCenter.announcementLevel.info"
+    public static let helpCenterAnnouncementLevelSuccess = "SHCHelpCenter.announcementLevel.success"
+    public static let helpCenterAnnouncementLevelWarning = "SHCHelpCenter.announcementLevel.warning"
+    public static let helpCenterAnnouncementLevelCritical = "SHCHelpCenter.announcementLevel.critical"
 
     // MARK: - FeedbackManager
     public static let feedbackTitle = "FeedbackView.title"

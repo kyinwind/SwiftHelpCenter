@@ -47,6 +47,7 @@ import SwiftHelpCenter
 
 // 在 App 初始化时配置
 SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+    appleID: "1234567890",
     versionHistory: SHCVersionHistoryConfiguration(
         items: versionHistoryItems,
         storageKey: "com.myapp.helpCenter.versionRead"
@@ -127,6 +128,20 @@ SHCAnnouncementItem(
 
 远程公告 JSON 支持放在 GitHub Raw、自己的网站或任意可访问的 HTTPS 地址：
 
+```swift
+SHCAnnouncementConfiguration(
+    items: [],
+    storageKey: "com.myapp.helpCenter.readAnnouncementIDs",
+    remoteURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/announcements.json")
+)
+```
+
+如果公告文件放在 GitHub，请使用 `raw.githubusercontent.com` 的原始文件地址，不要使用 `github.com/.../blob/...` 页面地址。`storageKey` 用来保存已读公告 ID，建议每个 App 使用独立 key。
+
+macOS / Mac Catalyst App 如果开启了 App Sandbox，需要在 entitlements 中启用 `com.apple.security.network.client`，否则远程公告请求会被系统拦截。
+
+`appleID` 是必填项，用于检查 App Store 新版本、打开升级页和跳转评分。`configure` 完成后会自动尝试拉取一次远程公告，并检查 App Store 是否有新版本。帮助中心界面打开时也会做兜底刷新，因此入口小红点可以在 App 启动后尽早反映未读公告或可用更新。
+
 ```json
 [
   {
@@ -141,6 +156,8 @@ SHCAnnouncementItem(
   }
 ]
 ```
+
+`level` 支持 `info`、`success`、`warning`、`critical`。完整示例见 [examples/announcements.sample.json](examples/announcements.sample.json)。
 
 **SHCHelpQuickLinkItem** — 快速入口卡片
 
@@ -158,6 +175,8 @@ SHCHelpQuickLinkItem.feedback()         // 打开反馈窗口
 SHCHelpQuickLinkItem.appStoreReview()   // 跳转评分
 SHCHelpQuickLinkItem.support()          // 打开技术支持
 ```
+
+默认情况下，帮助中心会自动显示“给应用评分”；当 `FeedbackManager` 已配置时，会自动显示“反馈问题”。`quickLinks` 适合放开发者自己的额外入口；如果想完全自定义快速入口，可以在 `SHCHelpCenterConfiguration` 中设置 `includeDefaultQuickLinks: false`。
 
 **SHCHelpFAQItem** — FAQ 条目
 

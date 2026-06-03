@@ -49,6 +49,7 @@ private enum SHCHelpCenterPreviewData {
         )
 
         manager.configure(SHCHelpCenterConfiguration(
+            appleID: "123456789",
             versionHistory: SHCVersionHistoryConfiguration(
                 items: items,
                 storageKey: "SwiftHelpCenter.SHCHelpCenterPreview.lastViewedPublishedAt",
@@ -72,10 +73,26 @@ private enum SHCHelpCenterPreviewData {
                 title: "Maintenance Notice",
                 message: "This is a sample announcement shown near the top of the help center.",
                 publishedAt: Date(),
-                level: .info,
+                level: .warning,
                 linkTitle: "View Details",
                 linkURL: URL(string: "https://example.com/notice"),
                 isPinned: true
+            ),
+            SHCAnnouncementItem(
+                id: "preview-release",
+                title: "New Tutorial Available",
+                message: "A new walkthrough has been published for the latest workflow.",
+                publishedAt: Date().addingTimeInterval(-86_400),
+                level: .info,
+                linkTitle: "Open Tutorial",
+                linkURL: URL(string: "https://example.com/tutorial")
+            ),
+            SHCAnnouncementItem(
+                id: "preview-fixed",
+                title: "Service Restored",
+                message: "The earlier service issue has been resolved. Thank you for your patience.",
+                publishedAt: Date().addingTimeInterval(-172_800),
+                level: .success
             )
         ]
     }

@@ -219,6 +219,7 @@ func announcementUnreadState() {
     )
 
     SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
+        appleID: "123456789",
         versionHistory: SHCVersionHistoryConfiguration(
             items: [],
             storageKey: "test.version.read",
@@ -233,6 +234,7 @@ func announcementUnreadState() {
 
     #expect(SHCHelpCenterManager.shared.hasUnreadUpdates == false)
     #expect(SHCHelpCenterManager.shared.hasUnreadAnnouncements == true)
+    #expect(SHCHelpCenterManager.shared.appleID == "123456789")
     #expect(SHCHelpCenterManager.shared.hasUnreadContent == true)
 
     SHCHelpCenterManager.shared.markAllAsRead()
