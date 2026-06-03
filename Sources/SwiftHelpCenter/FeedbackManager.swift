@@ -196,7 +196,7 @@ public final class FeedbackManager: ObservableObject {
 
     /// 当前可用的反馈渠道（根据配置自动过滤）
     public var availableChannels: [FeedbackChannel] {
-        webhooks.keys.sorted { $0.rawValue < $1.rawValue }
+        webhooks.keys.sorted { $0.rawValue > $1.rawValue }
     }
 
     @Published public var isSending: Bool = false
@@ -420,103 +420,142 @@ public struct FeedbackView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                Text(packageL("FeedbackView.title")).font(.title)
-
-                // 评分 & 技术支持
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        if let appleID = FeedbackManager.shared.config?.appleID, !appleID.isEmpty {
-                            Button(packageL("FeedbackView.rate")) {
-                                AppStoreHelper.rateApp(appleID: appleID)
-                            }
-                        }
-                        if let config = FeedbackManager.shared.config {
-                            Button {
-                                #if os(macOS)
-                                if let url = URL(string: config.supportURL) {
-                                    NSWorkspace.shared.open(url)
-                                }
-                                #elseif os(iOS)
-                                if let url = URL(string: config.supportURL) {
-                                    UIApplication.shared.open(url)
-                                }
-                                #endif
-                            } label: {
-                                Label(packageL("FeedbackView.techSupport"), systemImage: "lifepreserver")
-                            }
-                        }
-                        Spacer()
-                    }
-                }
-                .padding()
-
-                // 反馈表单
-                VStack(alignment: .leading, spacing: 12) {
-                    if !manager.availableChannels.isEmpty {
-                        Picker(packageL("FeedbackView.pickerTitle"), selection: $selectedChannel) {
-                            ForEach(manager.availableChannels, id: \.self) { channel in
-                                Text(channel.displayName).tag(channel)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
-                    }
-
-                    SHCTextView(
-                        text: $content,
-                        placeholder: packageL("FeedbackView.input"),
-                        maxLength: 1700
-                    )
-                    .padding(12)
-                    .frame(height: 150)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.4))
-                    )
-                    .padding(.horizontal)
-
-                    Text(packageL("FeedbackView.followup"))
-                        .font(.footnote)
-                        .padding(.horizontal)
-
-                    // 系统信息选项
-                    HStack {
-                        Toggle(isOn: $includeSystemInfo) {
-                            Text(packageL("FeedbackView.sysinfo"))
-                        }
-                        .padding(.horizontal)
-                        if includeSystemInfo {
-                            Text(systemInfo)
-                                .font(.footnote)
-                                .foregroundColor(.gray)
-                        }
-                    }
-
-                    // 截图上传（仅 macOS 支持图片选取）
-                    ScreenshotPickerView(selectedChannel: selectedChannel, attachmentURLs: $attachmentURLs)
-                }
-
-                // 发送按钮
-                Button(action: sendFeedbackAction) {
-                    if manager.isSending {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text(packageL("FeedbackView.sendFeedback"))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal)
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding()
-            .alert(alertMessage, isPresented: $showAlert) {
-                Button(packageL("FeedbackView.ok")) {}
+            SHCPageStack(maxWidth: 720) {
+                feedbackHeader
+                feedbackActions
+                feedbackForm
+                sendButton
             }
         }
+        .alert(alertMessage, isPresented: $showAlert) {
+            Button(packageL("FeedbackView.ok")) {}
+        }
+    }
+
+    private var feedbackHeader: some View {
+        HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+            Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(SHCTheme.shared.colors.accent)
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                        .fill(SHCTheme.shared.colors.accentSoft)
+                )
+
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                Text(packageL("FeedbackView.title"))
+                    .font(SHCTheme.shared.typography.hero)
+                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+
+                Text(packageL("FeedbackView.followup"))
+                    .font(SHCTheme.shared.typography.body)
+                    .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var feedbackActions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: SHCTheme.shared.spacing.sm) {
+                feedbackActionButtons
+            }
+
+            VStack(spacing: SHCTheme.shared.spacing.sm) {
+                feedbackActionButtons
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var feedbackActionButtons: some View {
+        if let appleID = FeedbackManager.shared.config?.appleID, !appleID.isEmpty {
+            Button {
+                AppStoreHelper.rateApp(appleID: appleID)
+            } label: {
+                Label(packageL("FeedbackView.rate"), systemImage: "star")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SHCSoftButtonStyle())
+        }
+
+        if let config = FeedbackManager.shared.config {
+            Button {
+                openSupport(config.supportURL)
+            } label: {
+                Label(packageL("FeedbackView.techSupport"), systemImage: "lifepreserver")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SHCSecondaryButtonStyle())
+        }
+    }
+
+    private var feedbackForm: some View {
+        SHCGroup(padding: SHCTheme.shared.spacing.md, style: .filled, showsBorder: true) {
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
+                if !manager.availableChannels.isEmpty {
+                    Picker(packageL("FeedbackView.pickerTitle"), selection: $selectedChannel) {
+                        ForEach(manager.availableChannels, id: \.self) { channel in
+                            Text(channel.displayName).tag(channel)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                SHCTextView(
+                    text: $content,
+                    placeholder: packageL("FeedbackView.input"),
+                    maxLength: 1700
+                )
+                .padding(SHCTheme.shared.spacing.sm)
+                .frame(height: 150)
+                .background(
+                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                        .fill(SHCTheme.shared.colors.pageBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                        .stroke(SHCTheme.shared.colors.border, lineWidth: SHCTheme.shared.stroke.hairline)
+                )
+
+                Toggle(isOn: $includeSystemInfo) {
+                    Label(packageL("FeedbackView.sysinfo"), systemImage: "desktopcomputer")
+                }
+
+                if includeSystemInfo {
+                    Text(systemInfo)
+                        .font(SHCTheme.shared.typography.caption)
+                        .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                        .padding(SHCTheme.shared.spacing.xs)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                                .fill(SHCTheme.shared.colors.subtleFill)
+                        )
+                }
+
+                ScreenshotPickerView(selectedChannel: selectedChannel, attachmentURLs: $attachmentURLs)
+            }
+        }
+    }
+
+    private var sendButton: some View {
+        Button(action: sendFeedbackAction) {
+            HStack(spacing: SHCTheme.shared.spacing.sm) {
+                if manager.isSending {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                } else {
+                    Image(systemName: "paperplane.fill")
+                    Text(packageL("FeedbackView.sendFeedback"))
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SHCPrimaryButtonStyle())
+        .keyboardShortcut(.defaultAction)
     }
 
     // MARK: - Image Picker (macOS only)
@@ -542,6 +581,16 @@ public struct FeedbackView: View {
             }
             showAlert = true
         }
+    }
+
+    private func openSupport(_ supportURL: String) {
+        guard let url = URL(string: supportURL) else { return }
+
+        #if os(macOS)
+        NSWorkspace.shared.open(url)
+        #elseif os(iOS)
+        UIApplication.shared.open(url)
+        #endif
     }
 }
 

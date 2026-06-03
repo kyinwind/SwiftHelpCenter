@@ -20,7 +20,7 @@
 "FeedbackView.type.mail" = "邮件";
 "FeedbackView.type.discord" = "Discord";
 "FeedbackView.type.dingding" = "钉钉";
-"FeedbackView.followup" = "跟进：我们将通过邮件回复";
+"FeedbackView.followup" = "跟进：我们将重视您的反馈并选择适合的渠道回复";
 "FeedbackView.sysinfo" = "包含系统信息";
 "FeedbackView.sendFeedback" = "发送反馈";
 "FeedbackView.input" = "请输入您的反馈...";

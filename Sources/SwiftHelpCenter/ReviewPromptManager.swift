@@ -8,6 +8,7 @@
 import SwiftUI
 import StoreKit
 import Foundation
+import SHCDesignSystem
 #if os(macOS)
 import AppKit
 #elseif os(iOS)
@@ -233,15 +234,24 @@ public struct ReviewPromptView: View {
 
     public var body: some View {
         VStack(spacing: 18) {
+            Image(systemName: "star.bubble.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(SHCTheme.shared.colors.accent)
+                .frame(width: 64, height: 64)
+                .background(
+                    Circle()
+                        .fill(SHCTheme.shared.colors.accentSoft)
+                )
+
             Text("ReviewPromptManager.title", bundle: .module)
-                .font(.title2.bold())
+                .font(SHCTheme.shared.typography.hero)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("ReviewPromptManager.request", bundle: .module)
-                .font(.body)
+                .font(SHCTheme.shared.typography.body15)
                 .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             actions
@@ -271,7 +281,11 @@ public struct ReviewPromptView: View {
             ReviewPromptManager.shared.neverPrompt()
             dismiss()
         } label: {
-            Text("ReviewPromptManager.button.never", bundle: .module)
+            Label {
+                Text("ReviewPromptManager.button.never", bundle: .module)
+            } icon: {
+                Image(systemName: "xmark.circle")
+            }
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
@@ -280,7 +294,11 @@ public struct ReviewPromptView: View {
             ReviewPromptManager.shared.holdOn()
             dismiss()
         } label: {
-            Text("ReviewPromptManager.button.holdOn", bundle: .module)
+            Label {
+                Text("ReviewPromptManager.button.holdOn", bundle: .module)
+            } icon: {
+                Image(systemName: "clock")
+            }
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
@@ -291,7 +309,11 @@ public struct ReviewPromptView: View {
             }
             dismiss()
         } label: {
-            Text("ReviewPromptManager.button.settings", bundle: .module)
+            Label {
+                Text("ReviewPromptManager.button.settings", bundle: .module)
+            } icon: {
+                Image(systemName: "gearshape")
+            }
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
@@ -306,7 +328,11 @@ public struct ReviewPromptView: View {
             }
             ReviewPromptManager.shared.neverPrompt()
         } label: {
-            Text("ReviewPromptManager.button.review", bundle: .module)
+            Label {
+                Text("ReviewPromptManager.button.review", bundle: .module)
+            } icon: {
+                Image(systemName: "star.fill")
+            }
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)

@@ -80,7 +80,7 @@ public struct SHCHelpQuickLinkItem: Identifiable, Hashable, Sendable {
         title: String = packageL(SwiftHelpCenterL10n.helpCenterOpenSupport),
         subtitle: String? = nil
     ) -> Self {
-        Self(title: title, subtitle: subtitle, systemImage: "safari", action: .support)
+        Self(title: title, subtitle: subtitle, systemImage: "lifepreserver", action: .support)
     }
 }
 
@@ -380,6 +380,7 @@ public final class SHCHelpCenterWindowPresenter {
             return
         }
 
+        let sourceWindow = Self.bestSourceWindow()
         let rootView = SHCVersionHistoryListView(
             title: title,
             manager: manager
@@ -395,7 +396,7 @@ public final class SHCHelpCenterWindowPresenter {
         )
         newWindow.title = title
         newWindow.contentViewController = hostingController
-        center(newWindow)
+        Self.center(newWindow, relativeTo: sourceWindow)
         newWindow.isReleasedWhenClosed = false
         newWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -403,22 +404,27 @@ public final class SHCHelpCenterWindowPresenter {
         window = newWindow
     }
 
-    private func center(_ window: NSWindow) {
-        let targetScreen = NSApp.keyWindow?.screen
-            ?? NSApp.mainWindow?.screen
-            ?? NSScreen.main
+    fileprivate static func bestSourceWindow() -> NSWindow? {
+        NSApp.keyWindow
+            ?? NSApp.mainWindow
+            ?? NSApp.windows.first { window in
+                window.isVisible && !window.isMiniaturized && window.canBecomeKey
+            }
+    }
 
-        guard let visibleFrame = targetScreen?.visibleFrame else {
-            window.center()
+    fileprivate static func center(_ window: NSWindow, relativeTo sourceWindow: NSWindow?) {
+        if let sourceWindow {
+            let sourceFrame = sourceWindow.frame
+            let windowSize = window.frame.size
+            let origin = NSPoint(
+                x: sourceFrame.midX - windowSize.width / 2,
+                y: sourceFrame.midY - windowSize.height / 2
+            )
+            window.setFrameOrigin(origin)
             return
         }
 
-        let windowSize = window.frame.size
-        let origin = NSPoint(
-            x: visibleFrame.midX - windowSize.width / 2,
-            y: visibleFrame.midY - windowSize.height / 2
-        )
-        window.setFrameOrigin(origin)
+        window.center()
     }
 }
 
@@ -437,19 +443,21 @@ public final class SHCFeedbackWindowPresenter {
             return
         }
 
+        let sourceWindow = SHCHelpCenterWindowPresenter.bestSourceWindow()
         let hostingController = NSHostingController(
             rootView: FeedbackView()
-                .frame(minWidth: 560, minHeight: 520)
+                .frame(minWidth: 640, minHeight: 660)
         )
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         newWindow.title = title
         newWindow.contentViewController = hostingController
-        newWindow.center()
+        newWindow.minSize = NSSize(width: 640, height: 660)
+        SHCHelpCenterWindowPresenter.center(newWindow, relativeTo: sourceWindow)
         newWindow.isReleasedWhenClosed = false
         newWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -740,59 +748,90 @@ public struct SHCVersionHistoryListView: View {
 
     @ViewBuilder
     private var header: some View {
+        SHCGroup(style: .subtle, showsBorder: true) {
         #if os(iOS)
-        VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.md) {
-            SHCSectionTitle(title: title, subtitle: subtitle)
-            headerActions
-        }
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.md) {
+                headerTitle
+                headerActions
+            }
         #else
-        HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
-            SHCSectionTitle(title: title, subtitle: subtitle)
+            HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+                headerTitle
 
-            Spacer(minLength: SHCTheme.shared.spacing.md)
+                Spacer(minLength: SHCTheme.shared.spacing.md)
 
-            headerActions
-        }
+                headerActions
+            }
         #endif
+        }
+    }
+
+    private var headerTitle: some View {
+        HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+            Image(systemName: "questionmark.bubble.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(manager.accentColor)
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                        .fill(manager.accentColor.opacity(0.12))
+                )
+
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                SHCSectionTitle(title: title, subtitle: subtitle)
+            }
+        }
     }
 
     private var headerActions: some View {
-        HStack(spacing: SHCTheme.shared.spacing.sm) {
-            if manager.hasAppStoreUpdateAvailable {
-                SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
-                    manager.openAppStoreUpdatePage()
-                }) {
-                    Label(packageL(SwiftHelpCenterL10n.helpCenterUpdateApp), systemImage: "arrow.down.circle")
-                }
-                #if os(iOS)
-                .frame(maxWidth: .infinity)
-                #endif
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: SHCTheme.shared.spacing.sm) {
+                headerActionButtons
             }
 
-            if let supportURL = manager.supportURL {
-                SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
-                    openURL(supportURL)
-                }) {
-                    Label(packageL(SwiftHelpCenterL10n.helpCenterOpenSupport), systemImage: "safari")
-                }
-                #if os(iOS)
-                .frame(maxWidth: .infinity)
-                #endif
+            VStack(spacing: SHCTheme.shared.spacing.sm) {
+                headerActionButtons
             }
+        }
+        #if os(iOS)
+        .frame(maxWidth: .infinity)
+        #endif
+    }
 
+    @ViewBuilder
+    private var headerActionButtons: some View {
+        if manager.hasAppStoreUpdateAvailable {
+            SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
+                manager.openAppStoreUpdatePage()
+            }) {
+                Label(packageL(SwiftHelpCenterL10n.helpCenterUpdateApp), systemImage: "arrow.down.circle")
+            }
+            #if os(iOS)
+            .frame(maxWidth: .infinity)
+            #endif
+        }
+
+        if let supportURL = manager.supportURL {
+            SHCHelpActionButton(role: .soft, accentColor: manager.accentColor, action: {
+                openURL(supportURL)
+            }) {
+                Label(packageL(SwiftHelpCenterL10n.helpCenterOpenSupport), systemImage: "lifepreserver")
+            }
+            #if os(iOS)
+            .frame(maxWidth: .infinity)
+            #endif
+        }
+
+        if manager.hasUnreadUpdates {
             SHCHelpActionButton(role: .secondary, accentColor: manager.accentColor, action: {
                 manager.markAllAsRead()
             }) {
                 Label(packageL(SwiftHelpCenterL10n.helpCenterMarkAllRead), systemImage: "checkmark.circle")
             }
-            .disabled(!manager.hasUnreadUpdates)
             #if os(iOS)
             .frame(maxWidth: .infinity)
             #endif
         }
-        #if os(iOS)
-        .frame(maxWidth: .infinity)
-        #endif
     }
 }
 
@@ -809,9 +848,13 @@ private struct SHCHelpQuickLinkButton: View {
         Button(action: performAction) {
             HStack(alignment: .center, spacing: SHCTheme.shared.spacing.sm) {
                 Image(systemName: link.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(manager.accentColor)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 42, height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                            .fill(manager.accentColor.opacity(0.12))
+                    )
 
                 VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
                     Text(link.title)
@@ -828,6 +871,10 @@ private struct SHCHelpQuickLinkButton: View {
                 }
 
                 Spacer(minLength: SHCTheme.shared.spacing.xs)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(SHCTheme.shared.colors.textTertiary)
             }
             .padding(SHCTheme.shared.spacing.md)
             .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
@@ -974,6 +1021,21 @@ private struct SHCVersionHistoryRow: View {
     }
 
     private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+                versionTitle
+                Spacer(minLength: SHCTheme.shared.spacing.md)
+                versionDate
+            }
+
+            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                versionTitle
+                versionDate
+            }
+        }
+    }
+
+    private var versionTitle: some View {
         HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
             if isUnread {
                 SHCUnreadDot(color: unreadColor)
@@ -986,17 +1048,29 @@ private struct SHCVersionHistoryRow: View {
             if isUnread {
                 SHCUnreadBadge(text: packageL(SwiftHelpCenterL10n.helpCenterNew), color: unreadColor)
             }
-
-            Spacer(minLength: SHCTheme.shared.spacing.md)
-
-            Text(formattedDate(item.publishedAt))
-                .font(SHCTheme.shared.typography.caption)
-                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
         }
     }
 
+    private var versionDate: some View {
+        Text(formattedDate(item.publishedAt))
+            .font(SHCTheme.shared.typography.caption)
+            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+    }
+
     private var actions: some View {
-        HStack(spacing: SHCTheme.shared.spacing.sm) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: SHCTheme.shared.spacing.sm) {
+                videoButtons
+            }
+
+            VStack(spacing: SHCTheme.shared.spacing.sm) {
+                videoButtons
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var videoButtons: some View {
             ForEach(item.videoLinks) { link in
                 SHCHelpActionButton(role: .soft, accentColor: accentColor, action: {
                     markAsRead()
@@ -1004,8 +1078,10 @@ private struct SHCVersionHistoryRow: View {
                 }) {
                     Label(link.title, systemImage: "play.rectangle")
                 }
+                #if os(iOS)
+                .frame(maxWidth: .infinity)
+                #endif
             }
-        }
     }
 
     private func formattedDate(_ date: Date) -> String {

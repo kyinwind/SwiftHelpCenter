@@ -1,6 +1,8 @@
 import SwiftUI
-#if canImport(AppKit)
+#if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
 #endif
 
 private extension KeyedDecodingContainer {
@@ -76,7 +78,7 @@ extension Color {
 
     /// 将 Color 转换为 hex 字符串（保留到 RGB）
     public func toHex() -> String {
-        #if canImport(AppKit)
+        #if os(macOS)
         guard let color = NSColor(self).usingColorSpace(.sRGB) else {
             return "#000000"
         }
@@ -85,13 +87,17 @@ extension Color {
         let g = Int((color.greenComponent * 255).rounded()).clamped(to: 0...255)
         let b = Int((color.blueComponent * 255).rounded()).clamped(to: 0...255)
         return String(format: "#%02X%02X%02X", r, g, b)
-        #elseif canImport(UIKit)
-        guard let color = UIColor(self).cgColor.components, color.count >= 3 else {
+        #elseif os(iOS)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
             return "#000000"
         }
-        let r = Int((color[0] * 255).rounded()).clamped(to: 0...255)
-        let g = Int((color[1] * 255).rounded()).clamped(to: 0...255)
-        let b = Int((color[2] * 255).rounded()).clamped(to: 0...255)
+        let r = Int((red * 255).rounded()).clamped(to: 0...255)
+        let g = Int((green * 255).rounded()).clamped(to: 0...255)
+        let b = Int((blue * 255).rounded()).clamped(to: 0...255)
         return String(format: "#%02X%02X%02X", r, g, b)
         #else
         return "#000000"
