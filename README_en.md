@@ -296,21 +296,44 @@ AppStoreHelper.rateApp(appleID: "1234567890")
 
 ## 3. Localization
 
-A localization framework that lets users manually switch the app language at runtime.
-Supports both SwiftUI and AppKit scenarios.
+SwiftHelpCenter provides app-level localization management for apps that let users switch language at runtime.
+It stores the language preference, looks up strings using that preference, and injects `Locale` into SwiftUI. Host apps can still keep their own thin `L()` helpers on top of it.
 
-### Configuration
+Responsibility boundaries:
+
+- `SHCAppLanguageManager`: SwiftUI state layer for language switching and view refresh.
+- `SHCLocalization`: low-level lookup and preference storage for AppKit, menus, extensions, and other non-SwiftUI code.
+- `packageL(...)`: only for SwiftHelpCenter's own package strings, looked up from `Bundle.module`.
+- Host app copy still belongs in the host app's own `Localizable.strings`, usually accessed through app-defined helpers such as `L()` / `toNSLocalizedString`.
+
+### Configure at App Startup
 
 ```swift
-// Basic setup
-SHCLocalization.configure(
+// Regular app
+SHCAppLanguageManager.shared.configure(
     userDefaults: .standard,
     storageKey: "AppLanguagePreference",
     defaultBundle: .main
 )
 
-// Or use App Group for shared settings across app + extensions
-SHCLocalization.configure(appGroupID: "group.com.myapp")
+// Use App Group when the main app and extensions need to share language settings
+SHCAppLanguageManager.shared.configure(
+    appGroupID: "group.com.myapp",
+    storageKey: "AppLanguagePreference",
+    defaultBundle: .main
+)
+```
+
+`defaultBundle: .main` means the host app's own strings are looked up from the main app bundle by default. Use an app-specific `storageKey` so different products or test environments do not share the same preference by accident.
+
+For FinderSync, Share Extension, AppKit alerts, or other non-SwiftUI code, you can configure the low-level lookup directly:
+
+```swift
+SHCLocalization.configure(
+    appGroupID: "group.com.myapp",
+    storageKey: "AppLanguagePreference",
+    defaultBundle: .main
+)
 ```
 
 ### Language Preference
@@ -323,14 +346,72 @@ enum SHCAppLanguagePreference: String {
 }
 ```
 
-### Reading and Setting Language
+### SwiftUI Root Integration
 
 ```swift
-// Set language
-SHCLocalization.selectedLanguage = .zhHans
+@main
+struct MyApp: App {
+    @State private var languageManager = SHCAppLanguageManager.shared
 
-// Read current language
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .SHCAppLanguage(languageManager)
+                .environment(languageManager)
+        }
+    }
+}
+```
+
+`.SHCAppLanguage(...)` injects the current `Locale` into SwiftUI and rebuilds the root view when the user changes language. For multi-window apps, apply it to the root view of every Window/Scene.
+
+### Language Picker
+
+```swift
+@State private var languageManager = SHCAppLanguageManager.shared
+
+Picker(
+    "Display Language",
+    selection: Binding(
+        get: { languageManager.selection },
+        set: { languageManager.setLanguage($0) }
+    )
+) {
+    Text("Follow System").tag(SHCAppLanguagePreference.system)
+    Text("简体中文").tag(SHCAppLanguagePreference.zhHans)
+    Text("English").tag(SHCAppLanguagePreference.english)
+}
+.pickerStyle(.segmented)
+```
+
+You can also read or update the preference directly:
+
+```swift
+SHCAppLanguageManager.shared.setLanguage(.zhHans)
 let current = SHCLocalization.selectedLanguage
+```
+
+### Host App Convenience Helpers
+
+Each host app should usually define its own thin localization helpers so product code does not need to call `SHCLocalization` everywhere.
+
+```swift
+import Foundation
+import SwiftHelpCenter
+
+func L(_ key: String, _ args: CVarArg...) -> String {
+    SHCLocalization.localizedFormat(key, arguments: args)
+}
+
+extension String {
+    var toNSLocalizedString: String {
+        SHCLocalization.localizedString(self)
+    }
+
+    func localized(in bundle: Bundle) -> String {
+        SHCLocalization.localizedString(self, bundle: bundle)
+    }
+}
 ```
 
 ### Package Resource Lookup
@@ -340,23 +421,14 @@ packageL("SHCHelpCenter.title")  // Look up from SwiftHelpCenter's bundle
 packageL("FeedbackView.title")
 ```
 
-### Host App Manual Lookup
+`packageL(...)` is mainly for SwiftHelpCenter's own UI. Host apps usually should not use it for product copy.
+
+### Host App Manual Lookup API
 
 ```swift
 SHCLocalization.localizedString("my.key")              // Default bundle
 SHCLocalization.localizedString("my.key", bundle: .main)  // Specify bundle
 SHCLocalization.localizedFormat("Hello %@", arguments: ["World"])
-```
-
-### SwiftUI Integration
-
-```swift
-// Apply at the root of each Window/Scene
-ContentView()
-    .SHCAppLanguage()  // Injects locale, rebuilds view tree on language change
-
-// Programmatic switching
-SHCAppLanguageManager.shared.setLanguage(.zhHans)
 ```
 
 ### Built-in Localization Keys

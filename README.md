@@ -293,20 +293,44 @@ AppStoreHelper.rateApp(appleID: "1234567890")
 
 ## 3. 国际化 (Localization)
 
-支持用户手动切换语言的国际化框架，同时兼容 SwiftUI 和 AppKit 场景。
+SwiftHelpCenter 提供一套 App 级国际化管理能力，用来支持用户在 App 内手动切换语言。
+它负责保存语言偏好、按偏好查表，并在 SwiftUI 中注入 `Locale`；调用方 App 可以在此基础上保留自己的 `L()` 等薄封装。
 
-### 配置
+职责边界：
+
+- `SHCAppLanguageManager`：SwiftUI 状态层，负责语言切换和视图刷新。
+- `SHCLocalization`：底层查表和语言偏好存储，适合 AppKit、菜单、扩展等非 SwiftUI 场景。
+- `packageL(...)`：仅用于 SwiftHelpCenter 包内部文案，从 `Bundle.module` 查表。
+- 调用方 App 的业务文案仍放在 App 自己的 `Localizable.strings` 中，通常通过 App 自己定义的 `L()` / `toNSLocalizedString` 访问。
+
+### App 启动时配置
 
 ```swift
-// 基础配置
-SHCLocalization.configure(
+// 普通 App
+SHCAppLanguageManager.shared.configure(
     userDefaults: .standard,
     storageKey: "AppLanguagePreference",
     defaultBundle: .main
 )
 
-// 或使用 App Group 支持主 App 与扩展共享语言设置
-SHCLocalization.configure(appGroupID: "group.com.myapp")
+// 如果主 App 与扩展需要共享语言设置，建议使用 App Group
+SHCAppLanguageManager.shared.configure(
+    appGroupID: "group.com.myapp",
+    storageKey: "AppLanguagePreference",
+    defaultBundle: .main
+)
+```
+
+`defaultBundle: .main` 表示调用方 App 自己的业务文案默认从主 App 的 `Localizable.strings` 查表。`storageKey` 建议每个 App 使用独立值，避免多个产品或测试环境互相影响。
+
+如果在 FinderSync、Share Extension、AppKit 弹窗等非 SwiftUI 场景中只需要查表，也可以直接配置底层：
+
+```swift
+SHCLocalization.configure(
+    appGroupID: "group.com.myapp",
+    storageKey: "AppLanguagePreference",
+    defaultBundle: .main
+)
 ```
 
 ### 语言偏好
@@ -319,14 +343,72 @@ enum SHCAppLanguagePreference: String {
 }
 ```
 
-### 读取和设置语言
+### SwiftUI 根视图接入
 
 ```swift
-// 设置语言
-SHCLocalization.selectedLanguage = .zhHans
+@main
+struct MyApp: App {
+    @State private var languageManager = SHCAppLanguageManager.shared
 
-// 读取当前语言
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .SHCAppLanguage(languageManager)
+                .environment(languageManager)
+        }
+    }
+}
+```
+
+`.SHCAppLanguage(...)` 会把当前语言对应的 `Locale` 注入 SwiftUI 环境，并在用户切换语言时重建根视图。多窗口 App 建议在每个 Window/Scene 的根视图上都挂一次。
+
+### 设置页切换语言
+
+```swift
+@State private var languageManager = SHCAppLanguageManager.shared
+
+Picker(
+    "Display Language",
+    selection: Binding(
+        get: { languageManager.selection },
+        set: { languageManager.setLanguage($0) }
+    )
+) {
+    Text("Follow System").tag(SHCAppLanguagePreference.system)
+    Text("简体中文").tag(SHCAppLanguagePreference.zhHans)
+    Text("English").tag(SHCAppLanguagePreference.english)
+}
+.pickerStyle(.segmented)
+```
+
+也可以直接读写底层语言偏好：
+
+```swift
+SHCAppLanguageManager.shared.setLanguage(.zhHans)
 let current = SHCLocalization.selectedLanguage
+```
+
+### 调用方 App 的便捷封装
+
+推荐每个 App 在自己的代码里定义一层很薄的本地化入口，这样业务代码不用直接散落 `SHCLocalization` 调用。
+
+```swift
+import Foundation
+import SwiftHelpCenter
+
+func L(_ key: String, _ args: CVarArg...) -> String {
+    SHCLocalization.localizedFormat(key, arguments: args)
+}
+
+extension String {
+    var toNSLocalizedString: String {
+        SHCLocalization.localizedString(self)
+    }
+
+    func localized(in bundle: Bundle) -> String {
+        SHCLocalization.localizedString(self, bundle: bundle)
+    }
+}
 ```
 
 ### 包内查表
@@ -336,23 +418,14 @@ packageL("SHCHelpCenter.title")  // 从 SwiftHelpCenter 资源查表
 packageL("FeedbackView.title")
 ```
 
-### 宿主 App 手动查表
+`packageL(...)` 主要给 SwiftHelpCenter 自己的 UI 使用。调用方 App 一般不需要用它查自己的业务文案。
+
+### 宿主 App 手动查表 API
 
 ```swift
 SHCLocalization.localizedString("my.key")              // 默认 bundle
 SHCLocalization.localizedString("my.key", bundle: .main)  // 指定 bundle
 SHCLocalization.localizedFormat("Hello %@", arguments: ["World"])
-```
-
-### SwiftUI 集成
-
-```swift
-// 在 Window/Scene 根视图上使用
-ContentView()
-    .SHCAppLanguage()  // 注入语言环境，切换时自动重建视图树
-
-// 编程方式切换
-SHCAppLanguageManager.shared.setLanguage(.zhHans)
 ```
 
 ### 内置本地化 Key

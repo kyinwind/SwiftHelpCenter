@@ -700,7 +700,7 @@ public final class SHCHelpCenterWindowPresenter {
     public init() {}
 
     public func show(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterTitle),
+        title: String? = nil,
         manager: SHCHelpCenterManager = .shared
     ) {
         if let window {
@@ -710,20 +710,29 @@ public final class SHCHelpCenterWindowPresenter {
         }
 
         let sourceWindow = Self.bestSourceWindow()
-        let rootView = SHCVersionHistoryListView(
-            title: title,
-            manager: manager
-        )
-        .frame(minWidth: 760, minHeight: 560)
-
-        let hostingController = NSHostingController(rootView: rootView)
+        let languageManager = SHCAppLanguageManager.shared
+        let windowTitle = title ?? packageL(SwiftHelpCenterL10n.helpCenterTitle)
         let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 680),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        newWindow.title = title
+        let rootView = SHCVersionHistoryListView(
+            title: title,
+            manager: manager
+        )
+        .SHCAppLanguage(languageManager)
+        .environment(languageManager)
+        .frame(minWidth: 760, minHeight: 560)
+        .onChange(of: languageManager.refreshToken) { _, _ in
+            if title == nil {
+                newWindow.title = packageL(SwiftHelpCenterL10n.helpCenterTitle)
+            }
+        }
+
+        let hostingController = NSHostingController(rootView: rootView)
+        newWindow.title = windowTitle
         newWindow.contentViewController = hostingController
         Self.center(newWindow, relativeTo: sourceWindow)
         newWindow.isReleasedWhenClosed = false
@@ -844,23 +853,27 @@ public struct SHCHelpButton: View {
     @State private var isShowingHelpCenter = false
     #endif
 
-    private let title: String
+    private let titleOverride: String?
     private let systemImage: String
     private let size: Size
     private let action: (() -> Void)?
 
     public init(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterHelp),
+        title: String? = nil,
         systemImage: String = "questionmark.circle",
         size: Size = .toolbar,
         manager: SHCHelpCenterManager = .shared,
         action: (() -> Void)? = nil
     ) {
         self._manager = State(initialValue: manager)
-        self.title = title
+        self.titleOverride = title
         self.systemImage = systemImage
         self.size = size
         self.action = action
+    }
+
+    private var displayTitle: String {
+        titleOverride ?? packageL(SwiftHelpCenterL10n.helpCenterHelp)
     }
 
     public var body: some View {
@@ -871,7 +884,7 @@ public struct SHCHelpButton: View {
                     .foregroundStyle(SHCTheme.shared.colors.textSecondary)
                     .frame(width: size.iconFrame, height: size.iconFrame)
 
-                Text(title)
+                Text(displayTitle)
                     .font(SHCTheme.shared.typography.bodyStrong)
                     .foregroundStyle(SHCTheme.shared.colors.textPrimary)
             }
@@ -890,12 +903,14 @@ public struct SHCHelpButton: View {
             }
         }
         .buttonStyle(.plain)
-        .help(title)
+        .help(displayTitle)
         #if os(iOS)
         .sheet(isPresented: $isShowingHelpCenter) {
             NavigationStack {
-                SHCVersionHistoryListView(title: title, manager: manager)
-                    .navigationTitle(title)
+                SHCVersionHistoryListView(title: titleOverride, manager: manager)
+                    .SHCAppLanguage(SHCAppLanguageManager.shared)
+                    .environment(SHCAppLanguageManager.shared)
+                    .navigationTitle(displayTitle)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
@@ -927,14 +942,14 @@ public struct SHCHelpButton: View {
 public struct SHCHelpNavigationLink: View {
     @State private var manager: SHCHelpCenterManager
 
-    private let title: String
+    private let titleOverride: String?
     private let systemImage: String
     private let iconColor: Color
     private let iconSize: CGFloat
     private let dotSize: CGFloat
 
     public init(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterTitle),
+        title: String? = nil,
         systemImage: String = "questionmark.circle.fill",
         iconColor: Color = .blue,
         iconSize: CGFloat = 40,
@@ -942,17 +957,23 @@ public struct SHCHelpNavigationLink: View {
         manager: SHCHelpCenterManager = .shared
     ) {
         self._manager = State(initialValue: manager)
-        self.title = title
+        self.titleOverride = title
         self.systemImage = systemImage
         self.iconColor = iconColor
         self.iconSize = iconSize
         self.dotSize = dotSize
     }
 
+    private var displayTitle: String {
+        titleOverride ?? packageL(SwiftHelpCenterL10n.helpCenterTitle)
+    }
+
     public var body: some View {
         NavigationLink {
-            SHCVersionHistoryListView(title: title, manager: manager)
-                .navigationTitle(title)
+            SHCVersionHistoryListView(title: titleOverride, manager: manager)
+                .SHCAppLanguage(SHCAppLanguageManager.shared)
+                .environment(SHCAppLanguageManager.shared)
+                .navigationTitle(displayTitle)
         } label: {
             Image(systemName: systemImage)
                 .font(.title2)
@@ -978,17 +999,25 @@ public struct SHCVersionHistoryListView: View {
     @State private var isShowingAllAnnouncements = false
     @State private var isShowingAllVersionHistory = false
 
-    private let title: String
-    private let subtitle: String?
+    private let titleOverride: String?
+    private let subtitleOverride: String?
 
     public init(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterTitle),
-        subtitle: String? = packageL(SwiftHelpCenterL10n.helpCenterVersionHistorySubtitle),
+        title: String? = nil,
+        subtitle: String? = nil,
         manager: SHCHelpCenterManager = .shared
     ) {
         self._manager = State(initialValue: manager)
-        self.title = title
-        self.subtitle = subtitle
+        self.titleOverride = title
+        self.subtitleOverride = subtitle
+    }
+
+    private var displayTitle: String {
+        titleOverride ?? packageL(SwiftHelpCenterL10n.helpCenterTitle)
+    }
+
+    private var displaySubtitle: String? {
+        subtitleOverride ?? packageL(SwiftHelpCenterL10n.helpCenterVersionHistorySubtitle)
     }
 
     public var body: some View {
@@ -1234,7 +1263,7 @@ public struct SHCVersionHistoryListView: View {
                 )
 
             VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                SHCSectionTitle(title: title, subtitle: subtitle)
+                SHCSectionTitle(title: displayTitle, subtitle: displaySubtitle)
             }
         }
     }
