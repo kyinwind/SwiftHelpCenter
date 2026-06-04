@@ -409,6 +409,7 @@ public struct FeedbackView: View {
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
     @State private var attachmentURLs: [URL] = []
+    @State private var languageManager = SHCAppLanguageManager.shared
 
     @ObservedObject private var manager = FeedbackManager.shared
 
@@ -430,6 +431,8 @@ public struct FeedbackView: View {
         .alert(alertMessage, isPresented: $showAlert) {
             Button(packageL("FeedbackView.ok")) {}
         }
+        .environment(\.locale, languageManager.locale)
+        .id(languageManager.refreshToken)
     }
 
     private var feedbackHeader: some View {
@@ -660,6 +663,8 @@ public struct SHCTextView: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
+        context.coordinator.parent = self
+        context.coordinator.placeholderLabel?.stringValue = placeholder
         context.coordinator.updatePlaceholder()
     }
 
@@ -730,6 +735,7 @@ public struct SHCTextView: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
+        context.coordinator.parent = self
         context.coordinator.updatePlaceholder(uiView)
     }
 

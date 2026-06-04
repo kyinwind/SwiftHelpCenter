@@ -63,24 +63,42 @@ public struct SHCHelpQuickLinkItem: Identifiable, Hashable, Sendable {
     }
 
     public static func feedback(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterFeedback),
+        title: String? = nil,
         subtitle: String? = nil
     ) -> Self {
-        Self(title: title, subtitle: subtitle, systemImage: "bubble.left.and.text.bubble.right", action: .feedback)
+        Self(
+            id: "SwiftHelpCenter.default.feedback",
+            title: title ?? "",
+            subtitle: subtitle,
+            systemImage: "bubble.left.and.text.bubble.right",
+            action: .feedback
+        )
     }
 
     public static func appStoreReview(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterRate),
+        title: String? = nil,
         subtitle: String? = nil
     ) -> Self {
-        Self(title: title, subtitle: subtitle, systemImage: "star", action: .appStoreReview)
+        Self(
+            id: "SwiftHelpCenter.default.appStoreReview",
+            title: title ?? "",
+            subtitle: subtitle,
+            systemImage: "star",
+            action: .appStoreReview
+        )
     }
 
     public static func support(
-        title: String = packageL(SwiftHelpCenterL10n.helpCenterOpenSupport),
+        title: String? = nil,
         subtitle: String? = nil
     ) -> Self {
-        Self(title: title, subtitle: subtitle, systemImage: "lifepreserver", action: .support)
+        Self(
+            id: "SwiftHelpCenter.default.support",
+            title: title ?? "",
+            subtitle: subtitle,
+            systemImage: "lifepreserver",
+            action: .support
+        )
     }
 }
 
@@ -774,7 +792,7 @@ public final class SHCFeedbackWindowPresenter {
 
     public init() {}
 
-    public func show(title: String = packageL(SwiftHelpCenterL10n.helpCenterFeedback)) {
+    public func show(title: String? = nil) {
         if let window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -782,17 +800,26 @@ public final class SHCFeedbackWindowPresenter {
         }
 
         let sourceWindow = SHCHelpCenterWindowPresenter.bestSourceWindow()
-        let hostingController = NSHostingController(
-            rootView: FeedbackView()
-                .frame(minWidth: 640, minHeight: 660)
-        )
+        let languageManager = SHCAppLanguageManager.shared
+        let windowTitle = title ?? packageL(SwiftHelpCenterL10n.helpCenterFeedback)
         let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 720, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        newWindow.title = title
+        let hostingController = NSHostingController(
+            rootView: FeedbackView()
+                .SHCAppLanguage(languageManager)
+                .environment(languageManager)
+                .frame(minWidth: 640, minHeight: 660)
+                .onChange(of: languageManager.refreshToken) { _, _ in
+                    if title == nil {
+                        newWindow.title = packageL(SwiftHelpCenterL10n.helpCenterFeedback)
+                    }
+                }
+        )
+        newWindow.title = windowTitle
         newWindow.contentViewController = hostingController
         newWindow.minSize = NSSize(width: 640, height: 660)
         SHCHelpCenterWindowPresenter.center(newWindow, relativeTo: sourceWindow)
@@ -996,6 +1023,7 @@ public struct SHCVersionHistoryListView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var manager: SHCHelpCenterManager
+    @State private var languageManager = SHCAppLanguageManager.shared
     @State private var isShowingAllAnnouncements = false
     @State private var isShowingAllVersionHistory = false
 
@@ -1033,6 +1061,8 @@ public struct SHCVersionHistoryListView: View {
         .task {
             await manager.refreshRemoteContentIfNeeded()
         }
+        .environment(\.locale, languageManager.locale)
+        .id(languageManager.refreshToken)
     }
 
     @ViewBuilder
@@ -1329,6 +1359,21 @@ private struct SHCHelpQuickLinkButton: View {
     let link: SHCHelpQuickLinkItem
     let manager: SHCHelpCenterManager
 
+    private var displayTitle: String {
+        guard link.title.isEmpty else { return link.title }
+
+        switch link.action {
+        case .feedback:
+            return packageL(SwiftHelpCenterL10n.helpCenterFeedback)
+        case .appStoreReview:
+            return packageL(SwiftHelpCenterL10n.helpCenterRate)
+        case .support:
+            return packageL(SwiftHelpCenterL10n.helpCenterOpenSupport)
+        case .url:
+            return link.title
+        }
+    }
+
     var body: some View {
         Button(action: performAction) {
             HStack(alignment: .center, spacing: SHCTheme.shared.spacing.sm) {
@@ -1342,7 +1387,7 @@ private struct SHCHelpQuickLinkButton: View {
                     )
 
                 VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                    Text(link.title)
+                    Text(displayTitle)
                         .font(SHCTheme.shared.typography.bodyStrong)
                         .foregroundStyle(SHCTheme.shared.colors.textPrimary)
                         .lineLimit(1)
@@ -1374,6 +1419,8 @@ private struct SHCHelpQuickLinkButton: View {
         .sheet(isPresented: $isShowingFeedback) {
             NavigationStack {
                 FeedbackView()
+                    .SHCAppLanguage(SHCAppLanguageManager.shared)
+                    .environment(SHCAppLanguageManager.shared)
                     .navigationTitle(packageL(SwiftHelpCenterL10n.helpCenterFeedback))
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
