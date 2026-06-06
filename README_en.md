@@ -122,7 +122,7 @@ SHCVersionHistoryConfiguration(
 )
 ```
 
-The remote JSON only needs to include versions that have supplemental links. `id` must match the local `SHCVersionHistoryItem.id`:
+The remote JSON only needs to include versions that have supplemental links. `id` first matches the local `SHCVersionHistoryItem.id`, and also supports version-name matching. For example, if the local item has `versionName: "v1.8.2"`, the remote JSON can use `"id": "1.8.2"` or `"id": "v1.8.2"`:
 
 ```json
 [
@@ -143,7 +143,7 @@ The remote JSON only needs to include versions that have supplemental links. `id
 ]
 ```
 
-After a successful fetch, SwiftHelpCenter merges `videoTitle` and `videoLinks` by `id`. If the request fails, the bundled version history remains available. Despite the `videoLinks` name, links are not limited to videos; callers can use them for articles, images, or webpages. See [examples/version-supplements.sample.json](examples/version-supplements.sample.json) for a complete sample.
+After a successful fetch, SwiftHelpCenter merges `videoTitle` and `videoLinks` by version matching. If the request fails, the bundled version history remains available. Despite the `videoLinks` name, links are not limited to videos; callers can use them for articles, images, or webpages. See [examples/version-supplements.sample.json](examples/version-supplements.sample.json) for a complete sample.
 
 **SHCAnnouncementItem** — Announcement entry
 

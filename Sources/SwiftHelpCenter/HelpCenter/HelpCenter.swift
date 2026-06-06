@@ -762,10 +762,17 @@ public final class SHCHelpCenterManager {
         local: [SHCVersionHistoryItem],
         supplements: [SHCVersionHistorySupplement]
     ) -> [SHCVersionHistoryItem] {
-        let supplementsByID = Dictionary(uniqueKeysWithValues: supplements.map { ($0.id, $0) })
+        var supplementsByKey: [String: SHCVersionHistorySupplement] = [:]
+        for supplement in supplements {
+            supplementsByKey[supplement.id] = supplement
+            supplementsByKey[normalizedVersionKey(supplement.id)] = supplement
+        }
 
         return local.map { item in
-            guard let supplement = supplementsByID[item.id] else { return item }
+            guard let supplement = supplementsByKey[item.id]
+                ?? supplementsByKey[item.versionName]
+                ?? supplementsByKey[normalizedVersionKey(item.versionName)]
+            else { return item }
 
             var merged = item
             if let videoTitle = supplement.videoTitle {
@@ -777,6 +784,14 @@ public final class SHCHelpCenterManager {
             return merged
         }
         .sorted { $0.publishedAt > $1.publishedAt }
+    }
+
+    private nonisolated static func normalizedVersionKey(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .drop { $0 == "v" }
+            .description
     }
 }
 

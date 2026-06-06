@@ -120,7 +120,7 @@ SHCVersionHistoryConfiguration(
 )
 ```
 
-远程 JSON 只需要提供要补充链接的版本，`id` 必须和本地 `SHCVersionHistoryItem.id` 一致：
+远程 JSON 只需要提供要补充链接的版本。`id` 会优先匹配本地 `SHCVersionHistoryItem.id`，也支持匹配版本名，例如本地 `versionName: "v1.8.2"` 时，远程可以写 `"id": "1.8.2"` 或 `"id": "v1.8.2"`：
 
 ```json
 [
@@ -141,7 +141,7 @@ SHCVersionHistoryConfiguration(
 ]
 ```
 
-远程读取成功后，SwiftHelpCenter 会按 `id` 合并 `videoTitle` 和 `videoLinks`；读取失败时继续显示 App 内置版本历史。这里的 `videoLinks` 不限制内容类型，也可以放文章、图片或网页链接。完整示例见 [examples/version-supplements.sample.json](examples/version-supplements.sample.json)。
+远程读取成功后，SwiftHelpCenter 会按版本匹配合并 `videoTitle` 和 `videoLinks`；读取失败时继续显示 App 内置版本历史。这里的 `videoLinks` 不限制内容类型，也可以放文章、图片或网页链接。完整示例见 [examples/version-supplements.sample.json](examples/version-supplements.sample.json)。
 
 **SHCAnnouncementItem** — 公告条目
 

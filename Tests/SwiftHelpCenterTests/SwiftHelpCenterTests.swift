@@ -219,6 +219,34 @@ func versionHistorySupplementMerge() throws {
     #expect(merged[1].videoLinks.isEmpty)
 }
 
+@Test("VersionHistorySupplement matches normalized version name")
+func versionHistorySupplementMatchesNormalizedVersionName() throws {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    let date = try #require(formatter.date(from: "2026-06-05"))
+    let localItem = SHCVersionHistoryItem(
+        versionName: "v1.1.6",
+        publishedAt: date,
+        changes: "Base release notes"
+    )
+    let supplement = SHCVersionHistorySupplement(
+        id: "1.1.6",
+        videoLinks: [
+            SHCHelpVideoLink(title: "bilibili", url: URL(string: "https://www.bilibili.com/video/example")!)
+        ]
+    )
+
+    let merged = SHCHelpCenterManager.mergedVersionHistoryItems(
+        local: [localItem],
+        supplements: [supplement]
+    )
+
+    #expect(merged.first?.videoLinks.first?.title == "bilibili")
+}
+
 @Test("HelpCenter compares semantic app versions")
 func appVersionComparison() {
     #expect(SHCHelpCenterManager.isVersion("1.8.2", newerThan: "1.8.1") == true)
