@@ -144,6 +144,81 @@ func versionHistoryInvalidDate() {
     #expect(item == nil)
 }
 
+@Test("VersionHistorySupplement parses simple JSON array")
+func versionHistorySupplementJSONParsing() throws {
+    let json = """
+    [
+      {
+        "id": "1.8.2",
+        "videoTitle": "v1.8.2 Walkthrough",
+        "videoLinks": [
+          {
+            "title": "bilibili",
+            "url": "https://www.bilibili.com/video/example"
+          }
+        ]
+      }
+    ]
+    """.data(using: .utf8)!
+
+    let supplements = try JSONDecoder().decode([SHCVersionHistorySupplement].self, from: json)
+    let supplement = try #require(supplements.first)
+
+    #expect(supplement.id == "1.8.2")
+    #expect(supplement.videoTitle == "v1.8.2 Walkthrough")
+    #expect(supplement.videoLinks?.first?.title == "bilibili")
+}
+
+@Test("VersionHistorySupplement merges matching video links only")
+func versionHistorySupplementMerge() throws {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    let date = try #require(formatter.date(from: "2026-06-03"))
+    let localItems = [
+        SHCVersionHistoryItem(
+            id: "1.8.2",
+            versionName: "v1.8.2",
+            publishedAt: date,
+            changes: "Base release notes"
+        ),
+        SHCVersionHistoryItem(
+            id: "1.8.1",
+            versionName: "v1.8.1",
+            publishedAt: date.addingTimeInterval(-86_400),
+            changes: "Previous release"
+        )
+    ]
+    let supplements = [
+        SHCVersionHistorySupplement(
+            id: "1.8.2",
+            videoTitle: "v1.8.2 Video",
+            videoLinks: [
+                SHCHelpVideoLink(title: "youtube", url: URL(string: "https://youtube.com/watch?v=example")!)
+            ]
+        ),
+        SHCVersionHistorySupplement(
+            id: "missing",
+            videoLinks: [
+                SHCHelpVideoLink(title: "ignored", url: URL(string: "https://example.com/ignored")!)
+            ]
+        )
+    ]
+
+    let merged = SHCHelpCenterManager.mergedVersionHistoryItems(
+        local: localItems,
+        supplements: supplements
+    )
+
+    let latest = try #require(merged.first)
+    #expect(latest.id == "1.8.2")
+    #expect(latest.videoTitle == "v1.8.2 Video")
+    #expect(latest.videoLinks.count == 1)
+    #expect(merged[1].videoLinks.isEmpty)
+}
+
 @Test("HelpCenter compares semantic app versions")
 func appVersionComparison() {
     #expect(SHCHelpCenterManager.isVersion("1.8.2", newerThan: "1.8.1") == true)

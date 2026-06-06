@@ -50,7 +50,8 @@ SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
     appleID: "1234567890",
     versionHistory: SHCVersionHistoryConfiguration(
         items: versionHistoryItems,
-        storageKey: "com.myapp.helpCenter.versionRead"
+        storageKey: "com.myapp.helpCenter.versionRead",
+        remoteSupplementURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/version-supplements.json")
     ),
     announcements: SHCAnnouncementConfiguration(
         items: announcementItems,
@@ -108,6 +109,39 @@ SHCVersionHistoryItem(
 ```
 
 支持 `Date` 和 `String` 两种传日期的方式。视频链接使用 `[SHCHelpVideoLink]` 数组，不限制平台。
+
+如果版本说明先随 App 发版，视频或文章链接要晚一两天发布，可以使用远程版本补充 JSON。`remoteSupplementURL` 是可选参数，不传时完全使用 App 内置的版本历史：
+
+```swift
+SHCVersionHistoryConfiguration(
+    items: versionHistoryItems,
+    storageKey: "com.myapp.helpCenter.versionRead",
+    remoteSupplementURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/version-supplements.json")
+)
+```
+
+远程 JSON 只需要提供要补充链接的版本，`id` 必须和本地 `SHCVersionHistoryItem.id` 一致：
+
+```json
+[
+  {
+    "id": "1.8.2",
+    "videoTitle": "v1.8.2 视频讲解",
+    "videoLinks": [
+      {
+        "title": "bilibili",
+        "url": "https://www.bilibili.com/video/xxx"
+      },
+      {
+        "title": "文章说明",
+        "url": "https://example.com/releases/1.8.2"
+      }
+    ]
+  }
+]
+```
+
+远程读取成功后，SwiftHelpCenter 会按 `id` 合并 `videoTitle` 和 `videoLinks`；读取失败时继续显示 App 内置版本历史。这里的 `videoLinks` 不限制内容类型，也可以放文章、图片或网页链接。完整示例见 [examples/version-supplements.sample.json](examples/version-supplements.sample.json)。
 
 **SHCAnnouncementItem** — 公告条目
 

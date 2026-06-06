@@ -52,7 +52,8 @@ SHCHelpCenterManager.shared.configure(SHCHelpCenterConfiguration(
     appleID: "1234567890",
     versionHistory: SHCVersionHistoryConfiguration(
         items: versionHistoryItems,
-        storageKey: "com.myapp.helpCenter.versionRead"
+        storageKey: "com.myapp.helpCenter.versionRead",
+        remoteSupplementURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/version-supplements.json")
     ),
     announcements: SHCAnnouncementConfiguration(
         items: announcementItems,
@@ -110,6 +111,39 @@ SHCVersionHistoryItem(
 ```
 
 Accepts both `Date` and `String` date formats. Video links use `[SHCHelpVideoLink]` array — any platform supported.
+
+If release notes ship with the app but videos or article links are published a day or two later, use a remote version supplement JSON. `remoteSupplementURL` is optional; omit it to use only the version history bundled in the app:
+
+```swift
+SHCVersionHistoryConfiguration(
+    items: versionHistoryItems,
+    storageKey: "com.myapp.helpCenter.versionRead",
+    remoteSupplementURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/version-supplements.json")
+)
+```
+
+The remote JSON only needs to include versions that have supplemental links. `id` must match the local `SHCVersionHistoryItem.id`:
+
+```json
+[
+  {
+    "id": "1.8.2",
+    "videoTitle": "v1.8.2 walkthrough",
+    "videoLinks": [
+      {
+        "title": "bilibili",
+        "url": "https://www.bilibili.com/video/xxx"
+      },
+      {
+        "title": "Release article",
+        "url": "https://example.com/releases/1.8.2"
+      }
+    ]
+  }
+]
+```
+
+After a successful fetch, SwiftHelpCenter merges `videoTitle` and `videoLinks` by `id`. If the request fails, the bundled version history remains available. Despite the `videoLinks` name, links are not limited to videos; callers can use them for articles, images, or webpages. See [examples/version-supplements.sample.json](examples/version-supplements.sample.json) for a complete sample.
 
 **SHCAnnouncementItem** — Announcement entry
 

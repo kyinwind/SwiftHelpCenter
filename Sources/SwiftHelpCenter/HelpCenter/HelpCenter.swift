@@ -178,6 +178,23 @@ public struct SHCVersionHistoryItem: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// 远程版本补充信息。用于在 App 发版后补充视频、文章或教程链接，不替代本地版本历史。
+public struct SHCVersionHistorySupplement: Identifiable, Codable, Hashable, Sendable {
+    public var id: String
+    public var videoTitle: String?
+    public var videoLinks: [SHCHelpVideoLink]?
+
+    public init(
+        id: String,
+        videoTitle: String? = nil,
+        videoLinks: [SHCHelpVideoLink]? = nil
+    ) {
+        self.id = id
+        self.videoTitle = videoTitle
+        self.videoLinks = videoLinks
+    }
+}
+
 /// 公告重要程度。用于决定公告卡片的图标和强调色。
 public enum SHCAnnouncementLevel: String, Codable, Hashable, Sendable {
     case info
@@ -345,15 +362,18 @@ public struct SHCVersionHistoryConfiguration: Sendable {
     public var items: [SHCVersionHistoryItem]
     public var storageKey: String
     public var markExistingItemsAsReadOnFirstConfigure: Bool
+    public var remoteSupplementURL: URL?
 
     public init(
         items: [SHCVersionHistoryItem] = [],
         storageKey: String,
-        markExistingItemsAsReadOnFirstConfigure: Bool = true
+        markExistingItemsAsReadOnFirstConfigure: Bool = true,
+        remoteSupplementURL: URL? = nil
     ) {
         self.items = items
         self.storageKey = storageKey
         self.markExistingItemsAsReadOnFirstConfigure = markExistingItemsAsReadOnFirstConfigure
+        self.remoteSupplementURL = remoteSupplementURL
     }
 }
 
@@ -430,12 +450,15 @@ public final class SHCHelpCenterManager {
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
     public private(set) var isCheckingAppStoreUpdate = false
     public private(set) var isLoadingRemoteAnnouncements = false
+    public private(set) var isLoadingRemoteVersionSupplements = false
 
     private var defaults: UserDefaults = .standard
     private var storageKey = "SwiftHelpCenter.SHCHelpCenter.lastViewedPublishedAt"
     private var announcementStorageKey = "SwiftHelpCenter.SHCHelpCenter.readAnnouncementIDs"
     private var remoteAnnouncementsURL: URL?
+    private var remoteVersionSupplementURL: URL?
     private var didFetchRemoteAnnouncements = false
+    private var didFetchRemoteVersionSupplements = false
     private var isConfigured = false
     private var checkedAppStoreAppleID: String?
 
@@ -455,7 +478,9 @@ public final class SHCHelpCenterManager {
         self.storageKey = configuration.versionHistory.storageKey
         self.announcementStorageKey = resolvedAnnouncementStorageKey
         self.remoteAnnouncementsURL = configuration.announcements?.remoteURL
+        self.remoteVersionSupplementURL = configuration.versionHistory.remoteSupplementURL
         self.didFetchRemoteAnnouncements = false
+        self.didFetchRemoteVersionSupplements = false
         self.supportURL = configuration.supportURL
         self.appleID = configuration.appleID
         self.accentColor = configuration.accentColor
@@ -595,7 +620,8 @@ public final class SHCHelpCenterManager {
     public func refreshRemoteContentIfNeeded() async {
         async let updateCheck: Void = checkForAppStoreUpdateIfNeeded()
         async let announcementFetch: Void = fetchRemoteAnnouncementsIfNeeded()
-        _ = await (updateCheck, announcementFetch)
+        async let supplementFetch: Void = fetchRemoteVersionSupplementsIfNeeded()
+        _ = await (updateCheck, announcementFetch, supplementFetch)
     }
 
     /// 按需拉取远程公告。通常由帮助中心界面自动调用，避免每次重绘都请求网络。
@@ -622,6 +648,33 @@ public final class SHCHelpCenterManager {
             announcements = Self.mergedAnnouncements(local: announcements, remote: remoteItems)
         } catch {
             // Remote announcements are optional; local announcements remain available on failure.
+        }
+    }
+
+    /// 按需拉取远程版本补充。远程补充只增强本地版本历史，不作为基础数据源。
+    public func fetchRemoteVersionSupplementsIfNeeded() async {
+        guard !didFetchRemoteVersionSupplements else { return }
+        didFetchRemoteVersionSupplements = true
+        await fetchRemoteVersionSupplements()
+    }
+
+    /// 从 `remoteVersionSupplementURL` 拉取版本补充 JSON，并按版本 id 合并视频链接。
+    public func fetchRemoteVersionSupplements() async {
+        guard let remoteVersionSupplementURL else { return }
+
+        isLoadingRemoteVersionSupplements = true
+        defer { isLoadingRemoteVersionSupplements = false }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: remoteVersionSupplementURL)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                return
+            }
+            let supplements = try JSONDecoder().decode([SHCVersionHistorySupplement].self, from: data)
+            items = Self.mergedVersionHistoryItems(local: items, supplements: supplements)
+        } catch {
+            // Remote supplements are optional; local version history remains available on failure.
         }
     }
 
@@ -703,6 +756,27 @@ public final class SHCHelpCenterManager {
             byID[item.id] = item
         }
         return sortedAnnouncements(Array(byID.values))
+    }
+
+    nonisolated static func mergedVersionHistoryItems(
+        local: [SHCVersionHistoryItem],
+        supplements: [SHCVersionHistorySupplement]
+    ) -> [SHCVersionHistoryItem] {
+        let supplementsByID = Dictionary(uniqueKeysWithValues: supplements.map { ($0.id, $0) })
+
+        return local.map { item in
+            guard let supplement = supplementsByID[item.id] else { return item }
+
+            var merged = item
+            if let videoTitle = supplement.videoTitle {
+                merged.videoTitle = videoTitle
+            }
+            if let videoLinks = supplement.videoLinks {
+                merged.videoLinks = videoLinks
+            }
+            return merged
+        }
+        .sorted { $0.publishedAt > $1.publishedAt }
     }
 }
 
