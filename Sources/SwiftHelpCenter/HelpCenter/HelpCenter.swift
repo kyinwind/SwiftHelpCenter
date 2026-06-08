@@ -1239,9 +1239,7 @@ public struct SHCVersionHistoryListView: View {
                 SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterQuickLinks))
 
                 LazyVGrid(
-                    columns: [
-                        GridItem(.adaptive(minimum: 180), spacing: SHCTheme.shared.spacing.sm)
-                    ],
+                    columns: quickLinkGridColumns,
                     alignment: .leading,
                     spacing: SHCTheme.shared.spacing.sm
                 ) {
@@ -1251,6 +1249,14 @@ public struct SHCVersionHistoryListView: View {
                 }
             }
         }
+    }
+
+    private var quickLinkGridColumns: [GridItem] {
+        #if os(iOS)
+        [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: SHCTheme.shared.spacing.sm)]
+        #else
+        [GridItem(.adaptive(minimum: 220, maximum: 360), spacing: SHCTheme.shared.spacing.sm)]
+        #endif
     }
 
     private var versionHistorySection: some View {
@@ -1479,7 +1485,8 @@ private struct SHCHelpQuickLinkButton: View {
                     Text(displayTitle)
                         .font(SHCTheme.shared.typography.bodyStrong)
                         .foregroundStyle(SHCTheme.shared.colors.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
                     if let subtitle = link.subtitle, !subtitle.isEmpty {
                         Text(subtitle)
@@ -1488,6 +1495,8 @@ private struct SHCHelpQuickLinkButton: View {
                             .lineLimit(2)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
 
                 Spacer(minLength: SHCTheme.shared.spacing.xs)
 
@@ -1496,7 +1505,7 @@ private struct SHCHelpQuickLinkButton: View {
                     .foregroundStyle(SHCTheme.shared.colors.textTertiary)
             }
             .padding(SHCTheme.shared.spacing.md)
-            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
                     .fill(SHCTheme.shared.colors.cardGrayBackground)
