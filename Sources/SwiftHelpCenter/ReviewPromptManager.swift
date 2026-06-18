@@ -246,33 +246,41 @@ public struct ReviewPromptView: View {
             Text("ReviewPromptManager.title", bundle: .module)
                 .font(SHCTheme.shared.typography.hero)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("ReviewPromptManager.request", bundle: .module)
                 .font(SHCTheme.shared.typography.body15)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
 
             actions
         }
-        .padding(24)
-        .frame(maxWidth: 560)
+        .padding(28)
+        .frame(maxWidth: 680)
         #if os(macOS)
-        .frame(minWidth: 520, minHeight: 220)
+        .frame(minWidth: 680, minHeight: 320)
         #endif
     }
 
     private var actions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                actionButtons
-            }
-
-            VStack(spacing: 10) {
-                actionButtons
-            }
+        LazyVGrid(columns: actionColumns, spacing: 10) {
+            actionButtons
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var actionColumns: [GridItem] {
+        #if os(macOS)
+        [
+            GridItem(.flexible(minimum: 170), spacing: 10),
+            GridItem(.flexible(minimum: 170), spacing: 10)
+        ]
+        #else
+        [GridItem(.flexible(minimum: 180), spacing: 10)]
+        #endif
     }
 
     @ViewBuilder
@@ -283,10 +291,12 @@ public struct ReviewPromptView: View {
         } label: {
             Label {
                 Text("ReviewPromptManager.button.never", bundle: .module)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             } icon: {
                 Image(systemName: "xmark.circle")
             }
-                .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
 
@@ -296,10 +306,12 @@ public struct ReviewPromptView: View {
         } label: {
             Label {
                 Text("ReviewPromptManager.button.holdOn", bundle: .module)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             } icon: {
                 Image(systemName: "clock")
             }
-                .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
 
@@ -311,10 +323,12 @@ public struct ReviewPromptView: View {
         } label: {
             Label {
                 Text("ReviewPromptManager.button.settings", bundle: .module)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             } icon: {
                 Image(systemName: "gearshape")
             }
-                .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.bordered)
 
@@ -330,10 +344,12 @@ public struct ReviewPromptView: View {
         } label: {
             Label {
                 Text("ReviewPromptManager.button.review", bundle: .module)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             } icon: {
                 Image(systemName: "star.fill")
             }
-                .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 34)
         }
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.defaultAction)
@@ -362,10 +378,10 @@ struct ReviewPromptContainerView: View {
         Group {
             if model.actType != nil {
                 ReviewPromptView(actType: model.actType)
-                    .frame(width: 400, height: 300)
+                    .frame(minWidth: 680, minHeight: 320)
             } else {
                 ProgressView("准备中…")
-                    .frame(width: 400, height: 300)
+                    .frame(minWidth: 680, minHeight: 320)
             }
         }
     }
