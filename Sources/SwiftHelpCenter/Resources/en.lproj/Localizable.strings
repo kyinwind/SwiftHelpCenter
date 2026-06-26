@@ -39,10 +39,13 @@
 "FeedbackView.sysinfo" = "Include System Information";
 "FeedbackView.sendFeedback" = "Send Feedback";
 "FeedbackView.input" = "Enter your feedback...";
+"FeedbackView.contact" = "Contact";
+"FeedbackView.contactPlaceholder" = "Email or other contact info (optional)";
 "FeedbackView.sendSuccess" = "Feedback sent successfully";
 "FeedbackView.sendFail" = "Failed to send feedback";
 "FeedbackView.ok" = "OK";
 "FeedbackManager.sysInfo" = "System Info";
+"FeedbackManager.contact" = "Contact";
 "FeedbackManager.notConfigured" = "FeedbackManager has not been configured. Call configure() first.";
 "FeedbackManager.mailUnavailable" = "No available mail app was found. Please configure Discord or DingTalk, or install a mail app.";
 "FeedbackManager.discordWebhookFailed" = "Discord webhook returned an error.";

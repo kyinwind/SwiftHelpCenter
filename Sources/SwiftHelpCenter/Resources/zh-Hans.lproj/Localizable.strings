@@ -39,10 +39,13 @@
 "FeedbackView.sysinfo" = "包含系统信息";
 "FeedbackView.sendFeedback" = "发送反馈";
 "FeedbackView.input" = "请输入您的反馈...";
+"FeedbackView.contact" = "联系方式";
+"FeedbackView.contactPlaceholder" = "邮箱或其他联系方式（可选）";
 "FeedbackView.sendSuccess" = "反馈发送成功";
 "FeedbackView.sendFail" = "反馈发送失败";
 "FeedbackView.ok" = "确定";
 "FeedbackManager.sysInfo" = "系统信息";
+"FeedbackManager.contact" = "联系方式";
 "FeedbackManager.notConfigured" = "FeedbackManager 尚未配置，请先调用 configure()。";
 "FeedbackManager.mailUnavailable" = "没有找到可用的邮件应用。请配置 Discord 或钉钉，或者安装邮件应用。";
 "FeedbackManager.discordWebhookFailed" = "Discord webhook 返回错误。";

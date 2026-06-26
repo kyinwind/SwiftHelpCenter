@@ -68,6 +68,7 @@ public enum FeedbackChannel: String, Hashable, CaseIterable {
 
 public struct FeedbackPayload {
     public var content: String
+    public var contact: String?
     public var attachments: [URL]
     public var includeSystemInfo: Bool
     public var systemInfo: String?
@@ -75,16 +76,29 @@ public struct FeedbackPayload {
 
     public init(
         content: String,
+        contact: String? = nil,
         attachments: [URL] = [],
         includeSystemInfo: Bool = true,
         systemInfo: String? = nil,
         channels: [FeedbackChannel] = [.discord]
     ) {
         self.content = content
+        self.contact = contact
         self.attachments = attachments
         self.includeSystemInfo = includeSystemInfo
         self.systemInfo = systemInfo
         self.channels = channels
+    }
+
+    public var combinedContent: String {
+        var contentText = content
+        if let contact = contact?.trimmingCharacters(in: .whitespacesAndNewlines), !contact.isEmpty {
+            contentText += "\n\n\(packageL("FeedbackManager.contact")): \(contact)"
+        }
+        if includeSystemInfo, let sys = systemInfo {
+            contentText += "\n\n\(packageL("FeedbackManager.sysInfo")):\n\(sys)"
+        }
+        return contentText
     }
 }
 
@@ -250,10 +264,7 @@ public final class FeedbackManager: ObservableObject {
     // MARK: - Channel Implementations
 
     private func sendToMail(config: FeedbackConfiguration, payload: FeedbackPayload) async throws {
-        var contentText = payload.content
-        if payload.includeSystemInfo, let sys = payload.systemInfo {
-            contentText += "\n\n\(packageL("FeedbackManager.sysInfo")):\n\(sys)"
-        }
+        let contentText = payload.combinedContent
 
         let subject = "App Feedback"
         let bodyEncoded = contentText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -284,10 +295,7 @@ public final class FeedbackManager: ObservableObject {
         request.httpMethod = "POST"
 
         if payload.attachments.isEmpty {
-            var contentText = payload.content
-            if payload.includeSystemInfo, let sys = payload.systemInfo {
-                contentText += "\n\n\(packageL("FeedbackManager.sysInfo")):\n\(sys)"
-            }
+            let contentText = payload.combinedContent
             let jsonDict: [String: Any] = ["content": contentText]
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: jsonDict)
@@ -313,10 +321,7 @@ public final class FeedbackManager: ObservableObject {
     }
 
     private func sendToDingTalk(url: URL, payload: FeedbackPayload) async throws {
-        var contentText = "feedback\n" + payload.content
-        if payload.includeSystemInfo, let sys = payload.systemInfo {
-            contentText += "\n\n\(packageL("FeedbackManager.sysInfo")):\n\(sys)"
-        }
+        let contentText = "feedback\n" + payload.combinedContent
         let jsonDict: [String: Any] = ["msgtype": "text", "text": ["content": contentText]]
         let data = try JSONSerialization.data(withJSONObject: jsonDict)
 
@@ -336,10 +341,7 @@ public final class FeedbackManager: ObservableObject {
     private func createMultipartBody(payload: FeedbackPayload, boundary: String) throws -> Data {
         var body = Data()
 
-        var contentText = payload.content
-        if payload.includeSystemInfo, let sys = payload.systemInfo {
-            contentText += "\n\n\(packageL("FeedbackManager.sysInfo")):\n\(sys)"
-        }
+        let contentText = payload.combinedContent
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"content\"\r\n\r\n".data(using: .utf8)!)
@@ -404,6 +406,7 @@ public enum FeedbackError: LocalizedError {
 
 public struct FeedbackView: View {
     @State private var content: String = ""
+    @State private var contact: String = ""
     @State private var selectedChannel: FeedbackChannel = .mail
     @State private var includeSystemInfo: Bool = true
     @State private var showAlert: Bool = false
@@ -523,6 +526,19 @@ public struct FeedbackView: View {
                         .stroke(SHCTheme.shared.colors.border, lineWidth: SHCTheme.shared.stroke.hairline)
                 )
 
+                TextField(packageL("FeedbackView.contactPlaceholder"), text: $contact)
+                    .textFieldStyle(.plain)
+                    .padding(SHCTheme.shared.spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                            .fill(SHCTheme.shared.colors.pageBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                            .stroke(SHCTheme.shared.colors.border, lineWidth: SHCTheme.shared.stroke.hairline)
+                    )
+                    .accessibilityLabel(packageL("FeedbackView.contact"))
+
                 Toggle(isOn: $includeSystemInfo) {
                     Label(packageL("FeedbackView.sysinfo"), systemImage: "desktopcomputer")
                 }
@@ -569,6 +585,7 @@ public struct FeedbackView: View {
     private func sendFeedbackAction() {
         let payload = FeedbackPayload(
             content: content,
+            contact: contact,
             attachments: attachmentURLs,
             includeSystemInfo: includeSystemInfo,
             systemInfo: systemInfo,

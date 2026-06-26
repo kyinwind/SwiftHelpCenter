@@ -484,6 +484,18 @@ func feedbackManagerConfigureInstance() {
     #expect(FeedbackManager.shared.config?.appName == "Test App")
 }
 
+
+@Test("FeedbackPayload combines content and contact")
+func feedbackPayloadCombinesContentAndContact() {
+    let payload = FeedbackPayload(
+        content: "The export failed.",
+        contact: "user@example.com",
+        includeSystemInfo: false
+    )
+
+    #expect(payload.combinedContent.contains("The export failed."))
+    #expect(payload.combinedContent.contains("Contact: user@example.com"))
+}
 // MARK: - SHCDefaultsTools: Codable Support
 
 private struct TestConfig: Codable, Equatable {
