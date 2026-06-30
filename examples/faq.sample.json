@@ -1,0 +1,19 @@
+{
+  "faqItems": [
+    {
+      "id": "contact",
+      "question": "How do I contact support?",
+      "answer": "Open the Help Center and click the support link."
+    },
+    {
+      "id": "privacy-policy",
+      "question": "Where can I read the privacy policy?",
+      "answer": "Open Settings > Privacy Policy, or visit https://example.com/privacy."
+    },
+    {
+      "id": "offline-mode",
+      "question": "Does the help center work offline?",
+      "answer": "Yes. Bundled FAQ items remain available when the remote JSON cannot be loaded."
+    }
+  ]
+}

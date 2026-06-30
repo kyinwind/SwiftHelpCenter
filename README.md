@@ -34,6 +34,18 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 
 ---
 
+## 安装
+
+通过 Xcode 添加 Swift Package 时，仓库地址填写：
+
+```text
+https://github.com/kyinwind/SwiftHelpCenter
+```
+
+版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.6`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.6` 时请在提交后创建并推送 `0.2.6` tag。
+
+---
+
 ## 1. 帮助中心 (HelpCenter)
 
 提供版本历史、快速入口卡片、FAQ 展开项等功能，适合放在应用菜单栏或设置页入口。
@@ -216,10 +228,58 @@ SHCHelpQuickLinkItem.support()          // 打开技术支持
 
 ```swift
 SHCHelpFAQItem(
+    id: "getting-started",
     question: "如何开始使用？",
     answer: "导入您的第一个文件..."
 )
 ```
+
+如果 FAQ 需要在 App 发版后继续补充，可以在 `SHCHelpCenterConfiguration` 里同时传入本地 `faqItems` 和远程 `remoteFAQURL`：
+
+```swift
+SHCHelpCenterConfiguration(
+    appleID: "1234567890",
+    versionHistory: versionHistoryConfiguration,
+    faqItems: [
+        SHCHelpFAQItem(
+            id: "contact",
+            question: "如何联系支持？",
+            answer: "在帮助中心点击技术支持入口。"
+        )
+    ],
+    remoteFAQURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/faq.sample.json")
+)
+```
+
+远程读取是可选能力：如果网络不通、服务端不可用或 JSON 解析失败，帮助中心会继续显示 App 内置的 `faqItems`，不会向用户弹出错误。读取成功后，SwiftHelpCenter 会按 `id` 合并 FAQ：远程条目与本地条目 `id` 相同时覆盖本地内容，新的远程条目会追加到列表末尾。
+
+远程 JSON 可以直接是数组：
+
+```json
+[
+  {
+    "id": "contact",
+    "question": "如何联系支持？",
+    "answer": "在帮助中心点击技术支持入口。"
+  }
+]
+```
+
+也可以包在 `faqItems`、`faq` 或 `items` 字段里：
+
+```json
+{
+  "faqItems": [
+    {
+      "id": "contact",
+      "question": "如何联系支持？",
+      "answer": "在帮助中心点击技术支持入口。"
+    }
+  ]
+}
+```
+
+每个远程条目使用 `id`、`question`、`answer` 三个字段。建议保持 `id` 稳定，这样以后可以只更新某个问题的答案。完整示例见 [examples/faq.sample.json](examples/faq.sample.json)。
 
 **SHCHelpVideoLink** — 单个视频链接（title + URL）
 

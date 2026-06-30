@@ -35,6 +35,18 @@ tutorial videos, support links, feedback, and review prompts, SwiftHelpCenter gi
 
 ---
 
+## Installation
+
+In Xcode, add this Swift Package URL:
+
+```text
+https://github.com/kyinwind/SwiftHelpCenter
+```
+
+Choose **Up to Next Major Version** and set the starting version to `0.2.6`. Swift Package versions are resolved from Git tags, so publish `0.2.6` by creating and pushing the `0.2.6` tag after committing the release changes.
+
+---
+
 ## 1. HelpCenter
 
 Provides version history timeline, quick-link cards, expandable FAQ items, and video link
@@ -218,10 +230,58 @@ By default, the help center shows “Rate App” because `appleID` is required. 
 
 ```swift
 SHCHelpFAQItem(
+    id: "getting-started",
     question: "How do I get started?",
     answer: "Import your first file..."
 )
 ```
+
+When FAQ content needs to be updated after the app ships, pass both bundled `faqItems` and an optional remote `remoteFAQURL` in `SHCHelpCenterConfiguration`:
+
+```swift
+SHCHelpCenterConfiguration(
+    appleID: "1234567890",
+    versionHistory: versionHistoryConfiguration,
+    faqItems: [
+        SHCHelpFAQItem(
+            id: "contact",
+            question: "How do I contact support?",
+            answer: "Open the Help Center and click the support link."
+        )
+    ],
+    remoteFAQURL: URL(string: "https://raw.githubusercontent.com/your/repo/main/faq.sample.json")
+)
+```
+
+Remote FAQ loading is optional and best-effort. If the device is offline, the server is unavailable, or the JSON cannot be parsed, the help center keeps showing the bundled `faqItems` and does not surface an error to the user. After a successful fetch, SwiftHelpCenter merges FAQ items by `id`: a remote item with the same `id` replaces the bundled item, while new remote items are appended to the end of the list.
+
+The remote JSON can be a top-level array:
+
+```json
+[
+  {
+    "id": "contact",
+    "question": "How do I contact support?",
+    "answer": "Open the Help Center and click the support link."
+  }
+]
+```
+
+Or wrapped in a `faqItems`, `faq`, or `items` field:
+
+```json
+{
+  "faqItems": [
+    {
+      "id": "contact",
+      "question": "How do I contact support?",
+      "answer": "Open the Help Center and click the support link."
+    }
+  ]
+}
+```
+
+Each remote item uses `id`, `question`, and `answer`. Keep `id` stable so future remote updates can replace specific bundled answers. See [examples/faq.sample.json](examples/faq.sample.json) for a complete sample.
 
 **SHCHelpVideoLink** — A single video link (title + URL)
 
