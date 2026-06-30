@@ -247,6 +247,47 @@ func versionHistorySupplementMatchesNormalizedVersionName() throws {
     #expect(merged.first?.videoLinks.first?.title == "bilibili")
 }
 
+
+@Test("FAQ remote JSON parses array and wrapped payload")
+func faqRemoteJSONParsing() throws {
+    let arrayJSON = """
+    [
+      { "id": "contact", "question": "How do I contact support?", "answer": "Use the support link." }
+    ]
+    """.data(using: .utf8)!
+
+    let wrappedJSON = """
+    {
+      "faqItems": [
+        { "id": "billing", "question": "How does billing work?", "answer": "Monthly." }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let arrayItems = try SHCHelpCenterManager.decodeFAQItems(from: arrayJSON)
+    let wrappedItems = try SHCHelpCenterManager.decodeFAQItems(from: wrappedJSON)
+
+    #expect(arrayItems.first?.id == "contact")
+    #expect(wrappedItems.first?.question == "How does billing work?")
+}
+
+@Test("FAQ remote items merge by id")
+func faqRemoteMerge() {
+    let local = [
+        SHCHelpFAQItem(id: "contact", question: "Old question", answer: "Old answer"),
+        SHCHelpFAQItem(id: "local", question: "Local only", answer: "Keep me")
+    ]
+    let remote = [
+        SHCHelpFAQItem(id: "contact", question: "New question", answer: "New answer"),
+        SHCHelpFAQItem(id: "remote", question: "Remote only", answer: "Add me")
+    ]
+
+    let merged = SHCHelpCenterManager.mergedFAQItems(local: local, remote: remote)
+
+    #expect(merged.map(\.id) == ["contact", "local", "remote"])
+    #expect(merged.first?.question == "New question")
+}
+
 @Test("HelpCenter compares semantic app versions")
 func appVersionComparison() {
     #expect(SHCHelpCenterManager.isVersion("1.8.2", newerThan: "1.8.1") == true)

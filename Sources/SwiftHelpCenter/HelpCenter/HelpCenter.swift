@@ -102,7 +102,7 @@ public struct SHCHelpQuickLinkItem: Identifiable, Hashable, Sendable {
     }
 }
 
-public struct SHCHelpFAQItem: Identifiable, Hashable, Sendable {
+public struct SHCHelpFAQItem: Identifiable, Codable, Hashable, Sendable {
     public var id: String
     public var question: String
     public var answer: String
@@ -356,6 +356,11 @@ private enum SHCAnnouncementDateParser {
     }
 }
 
+private struct SHCFAQItemsResponse: Decodable {
+    var faqItems: [SHCHelpFAQItem]?
+    var faq: [SHCHelpFAQItem]?
+    var items: [SHCHelpFAQItem]?
+}
 // MARK: - Help Center Configuration
 
 public struct SHCVersionHistoryConfiguration: Sendable {
@@ -401,6 +406,7 @@ public struct SHCHelpCenterConfiguration {
     public var quickLinks: [SHCHelpQuickLinkItem]
     public var faqItems: [SHCHelpFAQItem]
     public var includeDefaultQuickLinks: Bool
+    public var remoteFAQURL: URL?
     public var accentColor: Color
     public var unreadColor: Color
     public var defaults: UserDefaults
@@ -413,6 +419,7 @@ public struct SHCHelpCenterConfiguration {
         quickLinks: [SHCHelpQuickLinkItem] = [],
         faqItems: [SHCHelpFAQItem] = [],
         includeDefaultQuickLinks: Bool = true,
+        remoteFAQURL: URL? = nil,
         accentColor: Color = SHCTheme.shared.colors.accent,
         unreadColor: Color = SHCTheme.shared.colors.danger,
         defaults: UserDefaults = .standard
@@ -424,6 +431,7 @@ public struct SHCHelpCenterConfiguration {
         self.quickLinks = quickLinks
         self.faqItems = faqItems
         self.includeDefaultQuickLinks = includeDefaultQuickLinks
+        self.remoteFAQURL = remoteFAQURL
         self.accentColor = accentColor
         self.unreadColor = unreadColor
         self.defaults = defaults
@@ -451,14 +459,17 @@ public final class SHCHelpCenterManager {
     public private(set) var isCheckingAppStoreUpdate = false
     public private(set) var isLoadingRemoteAnnouncements = false
     public private(set) var isLoadingRemoteVersionSupplements = false
+    public private(set) var isLoadingRemoteFAQItems = false
 
     private var defaults: UserDefaults = .standard
     private var storageKey = "SwiftHelpCenter.SHCHelpCenter.lastViewedPublishedAt"
     private var announcementStorageKey = "SwiftHelpCenter.SHCHelpCenter.readAnnouncementIDs"
     private var remoteAnnouncementsURL: URL?
     private var remoteVersionSupplementURL: URL?
+    private var remoteFAQURL: URL?
     private var didFetchRemoteAnnouncements = false
     private var didFetchRemoteVersionSupplements = false
+    private var didFetchRemoteFAQItems = false
     private var isConfigured = false
     private var checkedAppStoreAppleID: String?
 
@@ -479,8 +490,10 @@ public final class SHCHelpCenterManager {
         self.announcementStorageKey = resolvedAnnouncementStorageKey
         self.remoteAnnouncementsURL = configuration.announcements?.remoteURL
         self.remoteVersionSupplementURL = configuration.versionHistory.remoteSupplementURL
+        self.remoteFAQURL = configuration.remoteFAQURL
         self.didFetchRemoteAnnouncements = false
         self.didFetchRemoteVersionSupplements = false
+        self.didFetchRemoteFAQItems = false
         self.supportURL = configuration.supportURL
         self.appleID = configuration.appleID
         self.accentColor = configuration.accentColor
@@ -621,7 +634,8 @@ public final class SHCHelpCenterManager {
         async let updateCheck: Void = checkForAppStoreUpdateIfNeeded()
         async let announcementFetch: Void = fetchRemoteAnnouncementsIfNeeded()
         async let supplementFetch: Void = fetchRemoteVersionSupplementsIfNeeded()
-        _ = await (updateCheck, announcementFetch, supplementFetch)
+        async let faqFetch: Void = fetchRemoteFAQItemsIfNeeded()
+        _ = await (updateCheck, announcementFetch, supplementFetch, faqFetch)
     }
 
     /// 按需拉取远程公告。通常由帮助中心界面自动调用，避免每次重绘都请求网络。
@@ -675,6 +689,32 @@ public final class SHCHelpCenterManager {
             items = Self.mergedVersionHistoryItems(local: items, supplements: supplements)
         } catch {
             // Remote supplements are optional; local version history remains available on failure.
+        }
+    }
+
+
+    public func fetchRemoteFAQItemsIfNeeded() async {
+        guard !didFetchRemoteFAQItems else { return }
+        didFetchRemoteFAQItems = true
+        await fetchRemoteFAQItems()
+    }
+
+    public func fetchRemoteFAQItems() async {
+        guard let remoteFAQURL else { return }
+
+        isLoadingRemoteFAQItems = true
+        defer { isLoadingRemoteFAQItems = false }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: remoteFAQURL)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                return
+            }
+            let remoteItems = try Self.decodeFAQItems(from: data)
+            faqItems = Self.mergedFAQItems(local: faqItems, remote: remoteItems)
+        } catch {
+            // Remote FAQ items are optional; local FAQ items remain available on failure.
         }
     }
 
@@ -756,6 +796,37 @@ public final class SHCHelpCenterManager {
             byID[item.id] = item
         }
         return sortedAnnouncements(Array(byID.values))
+    }
+
+    nonisolated static func decodeFAQItems(from data: Data) throws -> [SHCHelpFAQItem] {
+        let decoder = JSONDecoder()
+        if let items = try? decoder.decode([SHCHelpFAQItem].self, from: data) {
+            return items
+        }
+        let wrapped = try decoder.decode(SHCFAQItemsResponse.self, from: data)
+        return wrapped.faqItems ?? wrapped.faq ?? wrapped.items ?? []
+    }
+
+    nonisolated static func mergedFAQItems(
+        local: [SHCHelpFAQItem],
+        remote: [SHCHelpFAQItem]
+    ) -> [SHCHelpFAQItem] {
+        var byID: [String: SHCHelpFAQItem] = [:]
+        var order: [String] = []
+
+        for item in local {
+            byID[item.id] = item
+            order.append(item.id)
+        }
+
+        for item in remote {
+            if byID[item.id] == nil {
+                order.append(item.id)
+            }
+            byID[item.id] = item
+        }
+
+        return order.compactMap { byID[$0] }
     }
 
     nonisolated static func mergedVersionHistoryItems(
