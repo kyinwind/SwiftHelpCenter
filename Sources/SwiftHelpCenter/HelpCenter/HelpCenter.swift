@@ -405,8 +405,8 @@ public struct SHCHelpCenterConfiguration {
     public var supportURL: URL?
     public var quickLinks: [SHCHelpQuickLinkItem]
     public var faqItems: [SHCHelpFAQItem]
-    public var includeDefaultQuickLinks: Bool
     public var remoteFAQURL: URL?
+    public var includeDefaultQuickLinks: Bool
     public var accentColor: Color
     public var unreadColor: Color
     public var defaults: UserDefaults
@@ -418,8 +418,8 @@ public struct SHCHelpCenterConfiguration {
         supportURL: URL? = nil,
         quickLinks: [SHCHelpQuickLinkItem] = [],
         faqItems: [SHCHelpFAQItem] = [],
-        includeDefaultQuickLinks: Bool = true,
         remoteFAQURL: URL? = nil,
+        includeDefaultQuickLinks: Bool = true,
         accentColor: Color = SHCTheme.shared.colors.accent,
         unreadColor: Color = SHCTheme.shared.colors.danger,
         defaults: UserDefaults = .standard
@@ -430,8 +430,8 @@ public struct SHCHelpCenterConfiguration {
         self.supportURL = supportURL
         self.quickLinks = quickLinks
         self.faqItems = faqItems
-        self.includeDefaultQuickLinks = includeDefaultQuickLinks
         self.remoteFAQURL = remoteFAQURL
+        self.includeDefaultQuickLinks = includeDefaultQuickLinks
         self.accentColor = accentColor
         self.unreadColor = unreadColor
         self.defaults = defaults
