@@ -8,7 +8,7 @@
 import SwiftUI
 import StoreKit
 import Foundation
-import SHCDesignSystem
+import EasyDesignSystem
 #if os(macOS)
 import AppKit
 #elseif os(iOS)
@@ -236,23 +236,23 @@ public struct ReviewPromptView: View {
         VStack(spacing: 18) {
             Image(systemName: "star.bubble.fill")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(SHCTheme.shared.colors.accent)
+                .foregroundStyle(EDSTheme.shared.colors.accent)
                 .frame(width: 64, height: 64)
                 .background(
                     Circle()
-                        .fill(SHCTheme.shared.colors.accentSoft)
+                        .fill(EDSTheme.shared.colors.accentSoft)
                 )
 
             Text("ReviewPromptManager.title", bundle: .module)
-                .font(SHCTheme.shared.typography.hero)
+                .font(EDSTheme.shared.typography.hero)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("ReviewPromptManager.request", bundle: .module)
-                .font(SHCTheme.shared.typography.body15)
+                .font(EDSTheme.shared.typography.body15)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
 

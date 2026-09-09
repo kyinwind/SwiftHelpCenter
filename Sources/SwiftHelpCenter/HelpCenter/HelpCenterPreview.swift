@@ -1,5 +1,5 @@
 import SwiftUI
-import SHCDesignSystem
+import EasyDesignSystem
 
 // MARK: - Help Center Preview
 
@@ -9,7 +9,7 @@ public struct SHCHelpCenterPreview: View {
     public init() {}
 
     public var body: some View {
-        VStack(spacing: SHCTheme.shared.spacing.lg) {
+        VStack(spacing: EDSTheme.shared.spacing.lg) {
             SHCHelpButton(
                 title: packageL(SwiftHelpCenterL10n.helpCenterHelp),
                 manager: manager
@@ -19,9 +19,9 @@ public struct SHCHelpCenterPreview: View {
 #endif
             }
 
-            SHCCaptionText("Click the button to open the HelpCenter window.")
+            EDSCaptionText("Click the button to open the HelpCenter window.")
         }
-        .padding(SHCTheme.shared.spacing.xxl)
+        .padding(EDSTheme.shared.spacing.xxl)
         .onAppear {
             configurePreviewData()
         }
@@ -62,6 +62,12 @@ private enum SHCHelpCenterPreviewData {
             supportURL: URL(string: "https://example.com/support"),
             quickLinks: quickLinks,
             faqItems: faqItems,
+            trainingVideos: .init(items: [
+                .init(id: "start", title: "快速入门 / Getting started", url: URL(string: "https://example.com/start")!),
+                .init(id: "workflow", title: "进阶工作流 / Advanced workflows", url: URL(string: "https://example.com/workflow")!),
+                .init(id: "tips", title: "实用技巧 / Tips and tricks", url: URL(string: "https://example.com/tips")!),
+                .init(id: "long", title: "如何从零开始完成一次完整的操作流程 — A complete walkthrough from start to finish", url: URL(string: "https://example.com/full")!)
+            ]),
             unreadColor: .blue
         ))
     }
@@ -170,4 +176,26 @@ private enum SHCHelpCenterPreviewData {
 #Preview {
     SHCVersionHistoryListView(manager: SHCHelpCenterPreviewData.makeManager())
         .frame(width: 820, height: 680)
+}
+
+#Preview("Training videos • narrow") {
+    SHCTrainingVideosSection(items: [
+        .init(id: "a", title: "快速入门", url: URL(string: "https://example.com/a")!),
+        .init(id: "b", title: "Advanced workflows and practical tips for getting started", url: URL(string: "https://example.com/b")!),
+        .init(id: "c", title: "常见问题", url: URL(string: "https://example.com/c")!)
+    ], accentColor: .blue)
+    .padding()
+    .frame(width: 360)
+}
+
+#Preview("Training videos • single row") {
+    SHCTrainingVideosSection(items: [
+        .init(id: "a", title: "Getting started", url: URL(string: "https://example.com/a")!)
+    ], accentColor: .blue)
+    .padding()
+    .frame(width: 820)
+}
+
+#Preview("Training videos • empty") {
+    SHCTrainingVideosSection(items: [], accentColor: .blue)
 }

@@ -19,7 +19,7 @@ tutorial videos, support links, feedback, and review prompts, SwiftHelpCenter gi
 - [2. FeedbackManager](#2-feedbackmanager)
 - [3. Localization](#3-localization)
 - [4. ReviewPromptManager](#4-reviewpromptmanager)
-- [5. DesignSystem](#5-designsystem)
+- [5. EasyDesignSystem](#5-easydesignsystem)
 
 ---
 
@@ -31,7 +31,7 @@ tutorial videos, support links, feedback, and review prompts, SwiftHelpCenter gi
 | **FeedbackManager** | Multi-channel feedback (Discord / DingTalk / Email) with screenshot attachments (macOS) |
 | **Localization** | Manual language switching framework (zh-Hans / English) with SwiftUI integration |
 | **ReviewPromptManager** | Dual-threshold review prompt based on click count and days of usage |
-| **SHCDesignSystem** | (Separate sub-target) Complete design token system + component library |
+| **EasyDesignSystem** | Separate Swift Package providing design tokens and reusable components |
 
 ---
 
@@ -615,13 +615,15 @@ ReviewPromptManager.shared.cleanData()     // Reset data (for testing)
 
 ---
 
-## 5. DesignSystem
+## 5. EasyDesignSystem
 
-> `SwiftHelpCenter` internally depends on this Design System, which is also exposed
-> as the separate `SHCDesignSystem` sub-target. You can import it on its own.
+`SwiftHelpCenter` depends on the separate
+[`EasyDesignSystem`](https://github.com/kyinwind/EasyDesignSystem) package through
+Swift Package Manager. Adding `SwiftHelpCenter` resolves it automatically. Add the
+`EasyDesignSystem` product explicitly to your app if you also use its components directly.
 
 ```swift
-import SHCDesignSystem
+import EasyDesignSystem
 ```
 
 ### Core Capabilities
@@ -629,29 +631,29 @@ import SHCDesignSystem
 - **Theme Tokens** — Colors, spacing, radius, typography, control sizes, shadows, gradients
 - **Component Library** — Buttons (4 styles), badges, toggles, cards, groups, sidebar, state views, pill tags
 - **JSON Import/Export** — Serialize/deserialize complete themes
-- **Visual Editor** — `SHCDesignSystemPreview` WYSIWYG token editing (macOS only)
-- **Component Gallery** — `SHCDesignSystemGallery` showcases all components (macOS only)
+- **Adaptive environment** — Responds to platform, input mode, text size, and window size
+- **Component Catalog** — The separate `EasyDesignSystemCatalog` product showcases components
 
 ### Basic Usage
 
 ```swift
 // Configure theme
-SHCTheme.shared.configure { tokens in
-    tokens.colors.primary = "#FF6B00"
+EDSTheme.shared.configure { tokens in
+    tokens.colors.primary = Color(hexRGB: "#FF6B00")
 }
 
 // Apply a preset
-SHCTheme.shared.applyPreset(.rightClickMate)
+EDSTheme.shared.applyPreset(.orange)
 
 // Load from JSON
-try SHCTheme.shared.configure(jsonResource: "MyAppTheme")
+try EDSTheme.shared.configure(jsonResource: "MyAppTheme")
 
 // Use components
-SHCButton("Save", role: .primary, systemImage: "checkmark") { save() }
-SHCGroup("General") {
-    SHCSettingRow("Language") { SHCToggle(isOn: $isEnabled, label: "Enable") }
+EDSButton("Save", role: .primary, systemImage: "checkmark") { save() }
+EDSGroup("General") {
+    EDSSettingRow("Language") { EDSToggle(isOn: $isEnabled, label: "Enable") }
 }
-SHCCard { Text("Card content") }
+EDSCard { Text("Card content") }
 ```
 
 ---
@@ -665,3 +667,35 @@ SHCCard { Text("Card content") }
 ## License
 
 MIT
+
+### Training videos
+
+Add training videos to an existing help-center configuration:
+
+```swift
+configuration.trainingVideos = SHCTrainingVideoConfiguration(
+    items: [
+        SHCTrainingVideoItem(
+            id: "getting-started",
+            title: String(localized: "training.gettingStarted"), // Host app resources
+            url: URL(string: "https://example.com/videos/start")!
+        )
+    ],
+    remoteURL: URL(string: "https://example.com/training-videos.json")
+)
+SHCHelpCenterManager.shared.configure(configuration)
+```
+
+- Local only: omit `remoteURL`. Remote only: omit `items`. Both: show local data immediately, then merge by stable `id`.
+- Matching remote IDs update titles and URLs in place. New IDs append in JSON order. Local items remain available.
+- The section initially displays one actual row. “View all” expands wrapping pills; empty sections are hidden.
+- Provide a JSON array with `id`, `title`, and `url`; see the [sample](examples/training-videos.sample.json). IDs and titles must be nonempty, and links must be HTTP/HTTPS URLs. HTTPS is recommended for the JSON endpoint.
+- Invalid entries are skipped. Invalid files, entirely invalid nonempty arrays, and failed requests preserve the last successful result. An empty array removes remote-only items while retaining local data.
+- Each successful refresh replaces the remote snapshot, so removed remote-only items do not linger. Retry or refresh with `await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`.
+- Results are kept in memory only. Supply local items for offline availability after relaunch. The new configuration defaults to `nil`, preserving existing callers.
+
+**Localization:** Package UI uses the existing English and Simplified Chinese resources and follows `SHCAppLanguageManager`. Video titles are caller-localized strings displayed verbatim. Remote titles are not translated automatically. Select a language-specific JSON URL and reconfigure local items and the URL when the content language changes; keep stable IDs across languages. Apps with a manual language preference should localize host strings using that same preference.
+
+**Opening links:** macOS explicitly opens the system's default HTTPS browser. iOS uses the system external URL API: regular web links open in the default browser, while Universal Links may open an associated app. The generic public iOS URL API cannot guarantee forcing every associated link into the default browser; use an unassociated webpage URL when browser-only behavior is required. See [Apple's URL opening options](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey).
+
+Contact information on the feedback form remains optional. The placeholder and persistent hint explain that the developer needs contact information to reply.

@@ -40,7 +40,7 @@
 "FeedbackView.sendFeedback" = "Send Feedback";
 "FeedbackView.input" = "Enter your feedback...";
 "FeedbackView.contact" = "Contact";
-"FeedbackView.contactPlaceholder" = "Email or other contact info (optional)";
+"FeedbackView.contactPlaceholder" = "Contact info (optional; required for a reply)";
 "FeedbackView.sendSuccess" = "Feedback sent successfully";
 "FeedbackView.sendFail" = "Failed to send feedback";
 "FeedbackView.ok" = "OK";
@@ -58,3 +58,13 @@
 "ReviewPromptManager.button.holdOn" = "Remind Later";
 "ReviewPromptManager.button.settings" = "Settings";
 "ReviewPromptManager.button.review" = "Rate Now";
+
+"FeedbackView.contactHint" = "To receive a reply from the developer, please leave your email or another way to contact you.";
+
+"SHCHelpCenter.trainingVideos" = "Training videos";
+
+"SHCHelpCenter.viewAllTrainingVideos" = "View all (%ld)";
+
+"SHCHelpCenter.collapseTrainingVideos" = "Show less";
+
+"SHCHelpCenter.openTrainingVideoHint" = "Open video in browser";

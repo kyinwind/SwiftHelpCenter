@@ -13,30 +13,28 @@ let package = Package(
     products: [
         .library(
             name: "SwiftHelpCenter",
-            targets: ["SwiftHelpCenter", "SHCDesignSystem"]
+            targets: ["SwiftHelpCenter"]
         ),
+    ],
+    dependencies: [
+        .package(
+            url: "https://github.com/kyinwind/EasyDesignSystem.git",
+            .upToNextMinor(from: "0.2.0")
+        )
     ],
     targets: [
         .target(
-            name: "SHCDesignSystem",
-            exclude: [
-                "SHCDesignSystemGallery.swift",
-                "SHCDesignSystemPreview.swift"
-            ],
-            resources: [
-                .process("SHCDefaultTheme.json")
-            ]
-        ),
-        .target(
             name: "SwiftHelpCenter",
-            dependencies: ["SHCDesignSystem"],
+            dependencies: [
+                .product(name: "EasyDesignSystem", package: "EasyDesignSystem")
+            ],
             resources: [
                 .process("Resources")
             ]
         ),
         .testTarget(
             name: "SwiftHelpCenterTests",
-            dependencies: ["SwiftHelpCenter", "SHCDesignSystem"]
+            dependencies: ["SwiftHelpCenter"]
         ),
     ],
     swiftLanguageModes: [.v6]

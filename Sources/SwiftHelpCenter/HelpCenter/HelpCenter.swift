@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import SHCDesignSystem
+import EasyDesignSystem
 #if os(macOS)
 import AppKit
 #endif
@@ -406,6 +406,7 @@ public struct SHCHelpCenterConfiguration {
     public var quickLinks: [SHCHelpQuickLinkItem]
     public var faqItems: [SHCHelpFAQItem]
     public var remoteFAQURL: URL?
+    public var trainingVideos: SHCTrainingVideoConfiguration?
     public var includeDefaultQuickLinks: Bool
     public var accentColor: Color
     public var unreadColor: Color
@@ -419,9 +420,10 @@ public struct SHCHelpCenterConfiguration {
         quickLinks: [SHCHelpQuickLinkItem] = [],
         faqItems: [SHCHelpFAQItem] = [],
         remoteFAQURL: URL? = nil,
+        trainingVideos: SHCTrainingVideoConfiguration? = nil,
         includeDefaultQuickLinks: Bool = true,
-        accentColor: Color = SHCTheme.shared.colors.accent,
-        unreadColor: Color = SHCTheme.shared.colors.danger,
+        accentColor: Color = EDSTheme.shared.colors.accent,
+        unreadColor: Color = EDSTheme.shared.colors.danger,
         defaults: UserDefaults = .standard
     ) {
         self.versionHistory = versionHistory
@@ -431,6 +433,7 @@ public struct SHCHelpCenterConfiguration {
         self.quickLinks = quickLinks
         self.faqItems = faqItems
         self.remoteFAQURL = remoteFAQURL
+        self.trainingVideos = trainingVideos
         self.includeDefaultQuickLinks = includeDefaultQuickLinks
         self.accentColor = accentColor
         self.unreadColor = unreadColor
@@ -453,8 +456,8 @@ public final class SHCHelpCenterManager {
     public private(set) var readAnnouncementIDs: Set<String> = []
     public private(set) var supportURL: URL?
     public private(set) var appleID: String = ""
-    public private(set) var accentColor: Color = SHCTheme.shared.colors.accent
-    public private(set) var unreadColor: Color = SHCTheme.shared.colors.danger
+    public private(set) var accentColor: Color = EDSTheme.shared.colors.accent
+    public private(set) var unreadColor: Color = EDSTheme.shared.colors.danger
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
     public private(set) var isCheckingAppStoreUpdate = false
     public private(set) var isLoadingRemoteAnnouncements = false
@@ -473,6 +476,19 @@ public final class SHCHelpCenterManager {
     private var isConfigured = false
     private var checkedAppStoreAppleID: String?
 
+    private let trainingVideoStore = SHCTrainingVideoStore()
+    public var trainingVideos: [SHCTrainingVideoItem] { trainingVideoStore.items }
+    public var isLoadingRemoteTrainingVideos: Bool { trainingVideoStore.isLoading }
+
+    public func fetchRemoteTrainingVideosIfNeeded() async {
+        await trainingVideoStore.fetch(ifNeeded: true)
+    }
+
+    /// Explicitly retries or refreshes the optional remote video snapshot.
+    public func fetchRemoteTrainingVideos() async {
+        await trainingVideoStore.fetch(ifNeeded: false)
+    }
+
     public init() {}
 
     public func configure(_ configuration: SHCHelpCenterConfiguration) {
@@ -485,6 +501,7 @@ public final class SHCHelpCenterManager {
             customLinks: configuration.quickLinks,
             includeDefaultQuickLinks: configuration.includeDefaultQuickLinks
         )
+        trainingVideoStore.configure(configuration.trainingVideos)
         self.faqItems = configuration.faqItems
         self.storageKey = configuration.versionHistory.storageKey
         self.announcementStorageKey = resolvedAnnouncementStorageKey
@@ -635,7 +652,8 @@ public final class SHCHelpCenterManager {
         async let announcementFetch: Void = fetchRemoteAnnouncementsIfNeeded()
         async let supplementFetch: Void = fetchRemoteVersionSupplementsIfNeeded()
         async let faqFetch: Void = fetchRemoteFAQItemsIfNeeded()
-        _ = await (updateCheck, announcementFetch, supplementFetch, faqFetch)
+        async let trainingFetch: Void = fetchRemoteTrainingVideosIfNeeded()
+        _ = await (updateCheck, announcementFetch, supplementFetch, faqFetch, trainingFetch)
     }
 
     /// 按需拉取远程公告。通常由帮助中心界面自动调用，避免每次重绘都请求网络。
@@ -1022,8 +1040,8 @@ public struct SHCHelpButton: View {
 
         var horizontalPadding: CGFloat {
             switch self {
-            case .toolbar: return SHCTheme.shared.spacing.sm
-            case .large: return SHCTheme.shared.spacing.md
+            case .toolbar: return EDSTheme.shared.spacing.sm
+            case .large: return EDSTheme.shared.spacing.md
             }
         }
 
@@ -1065,21 +1083,21 @@ public struct SHCHelpButton: View {
 
     public var body: some View {
         Button(action: performAction) {
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
+            HStack(spacing: EDSTheme.shared.spacing.sm) {
                 Image(systemName: systemImage)
                     .font(.system(size: size.iconFontSize, weight: .regular))
-                    .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                    .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                     .frame(width: size.iconFrame, height: size.iconFrame)
 
                 Text(displayTitle)
-                    .font(SHCTheme.shared.typography.bodyStrong)
-                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                    .font(EDSTheme.shared.typography.bodyStrong)
+                    .foregroundStyle(EDSTheme.shared.colors.textPrimary)
             }
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
             .background(
                 Capsule(style: .continuous)
-                    .fill(SHCTheme.shared.colors.cardGrayBackground)
+                    .fill(EDSTheme.shared.colors.cardGrayBackground)
             )
             .contentShape(Capsule(style: .continuous))
             .overlay(alignment: .topTrailing) {
@@ -1210,10 +1228,11 @@ public struct SHCVersionHistoryListView: View {
 
     public var body: some View {
         ScrollView {
-            SHCPageStack(maxWidth: 820) {
+            EDSPageStack(maxWidth: 820) {
                 header
                 announcementsSection
                 quickLinksSection
+                SHCTrainingVideosSection(items: manager.trainingVideos, accentColor: manager.accentColor)
                 versionHistorySection
                 faqSection
             }
@@ -1230,11 +1249,11 @@ public struct SHCVersionHistoryListView: View {
         let announcements = manager.visibleAnnouncements
 
         if !announcements.isEmpty {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
-                SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterAnnouncements))
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
+                EDSSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterAnnouncements))
 
                 if isShowingAllAnnouncements || announcements.count == 1 {
-                    LazyVStack(spacing: SHCTheme.shared.spacing.sm) {
+                    LazyVStack(spacing: EDSTheme.shared.spacing.sm) {
                         ForEach(announcements) { item in
                             SHCAnnouncementRow(
                                 item: item,
@@ -1270,7 +1289,7 @@ public struct SHCVersionHistoryListView: View {
                             packageL(SwiftHelpCenterL10n.helpCenterCollapseAnnouncements),
                             systemImage: "chevron.up"
                         )
-                        .font(SHCTheme.shared.typography.bodyStrong)
+                        .font(EDSTheme.shared.typography.bodyStrong)
                         .foregroundStyle(manager.accentColor)
                     }
                     .buttonStyle(.plain)
@@ -1306,13 +1325,13 @@ public struct SHCVersionHistoryListView: View {
     @ViewBuilder
     private var quickLinksSection: some View {
         if !manager.quickLinks.isEmpty {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
-                SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterQuickLinks))
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
+                EDSSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterQuickLinks))
 
                 LazyVGrid(
                     columns: quickLinkGridColumns,
                     alignment: .leading,
-                    spacing: SHCTheme.shared.spacing.sm
+                    spacing: EDSTheme.shared.spacing.sm
                 ) {
                     ForEach(manager.quickLinks) { link in
                         SHCHelpQuickLinkButton(link: link, manager: manager)
@@ -1324,19 +1343,19 @@ public struct SHCVersionHistoryListView: View {
 
     private var quickLinkGridColumns: [GridItem] {
         #if os(iOS)
-        [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: SHCTheme.shared.spacing.sm)]
+        [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: EDSTheme.shared.spacing.sm)]
         #else
-        [GridItem(.adaptive(minimum: 220, maximum: 360), spacing: SHCTheme.shared.spacing.sm)]
+        [GridItem(.adaptive(minimum: 220, maximum: 360), spacing: EDSTheme.shared.spacing.sm)]
         #endif
     }
 
     private var versionHistorySection: some View {
-        VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
-            SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterVersionHistory))
+        VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
+            EDSSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterVersionHistory))
 
             if manager.items.isEmpty {
-                SHCGroup {
-                    SHCEmptyState(
+                EDSGroup {
+                    EDSEmptyState(
                         systemImage: "clock.arrow.circlepath",
                         title: LocalizedStringKey(packageL(SwiftHelpCenterL10n.helpCenterNoVersionHistory)),
                         message: LocalizedStringKey(packageL(SwiftHelpCenterL10n.helpCenterNoVersionHistoryMessage))
@@ -1344,7 +1363,7 @@ public struct SHCVersionHistoryListView: View {
                 }
             } else {
                 if isShowingAllVersionHistory || manager.items.count == 1 {
-                    LazyVStack(spacing: SHCTheme.shared.spacing.md) {
+                    LazyVStack(spacing: EDSTheme.shared.spacing.md) {
                         ForEach(manager.items) { item in
                             SHCVersionHistoryRow(
                                 item: item,
@@ -1368,7 +1387,7 @@ public struct SHCVersionHistoryListView: View {
                                 packageL(SwiftHelpCenterL10n.helpCenterCollapseVersionHistory),
                                 systemImage: "chevron.up"
                             )
-                            .font(SHCTheme.shared.typography.bodyStrong)
+                            .font(EDSTheme.shared.typography.bodyStrong)
                             .foregroundStyle(manager.accentColor)
                         }
                         .buttonStyle(.plain)
@@ -1409,10 +1428,10 @@ public struct SHCVersionHistoryListView: View {
     @ViewBuilder
     private var faqSection: some View {
         if !manager.faqItems.isEmpty {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
-                SHCSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterFAQ))
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
+                EDSSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterFAQ))
 
-                SHCGroup {
+                EDSGroup {
                     VStack(spacing: 0) {
                         ForEach(Array(manager.faqItems.enumerated()), id: \.element.id) { index, item in
                             SHCHelpFAQRow(item: item)
@@ -1429,17 +1448,17 @@ public struct SHCVersionHistoryListView: View {
 
     @ViewBuilder
     private var header: some View {
-        SHCGroup(style: .subtle, showsBorder: true) {
+        EDSGroup(style: .subtle, showsBorder: true) {
         #if os(iOS)
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.md) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.md) {
                 headerTitle
                 headerActions
             }
         #else
-            HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+            HStack(alignment: .top, spacing: EDSTheme.shared.spacing.md) {
                 headerTitle
 
-                Spacer(minLength: SHCTheme.shared.spacing.md)
+                Spacer(minLength: EDSTheme.shared.spacing.md)
 
                 headerActions
             }
@@ -1448,29 +1467,29 @@ public struct SHCVersionHistoryListView: View {
     }
 
     private var headerTitle: some View {
-        HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+        HStack(alignment: .top, spacing: EDSTheme.shared.spacing.md) {
             Image(systemName: "questionmark.bubble.fill")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(manager.accentColor)
                 .frame(width: 44, height: 44)
                 .background(
-                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                         .fill(manager.accentColor.opacity(0.12))
                 )
 
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                SHCSectionTitle(title: displayTitle, subtitle: displaySubtitle)
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
+                EDSSectionTitle(title: displayTitle, subtitle: displaySubtitle)
             }
         }
     }
 
     private var headerActions: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
+            HStack(spacing: EDSTheme.shared.spacing.sm) {
                 headerActionButtons
             }
 
-            VStack(spacing: SHCTheme.shared.spacing.sm) {
+            VStack(spacing: EDSTheme.shared.spacing.sm) {
                 headerActionButtons
             }
         }
@@ -1542,46 +1561,46 @@ private struct SHCHelpQuickLinkButton: View {
 
     var body: some View {
         Button(action: performAction) {
-            HStack(alignment: .center, spacing: SHCTheme.shared.spacing.sm) {
+            HStack(alignment: .center, spacing: EDSTheme.shared.spacing.sm) {
                 Image(systemName: link.systemImage)
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(manager.accentColor)
                     .frame(width: 42, height: 42)
                     .background(
-                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                        RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
                             .fill(manager.accentColor.opacity(0.12))
                     )
 
-                VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+                VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                     Text(displayTitle)
-                        .font(SHCTheme.shared.typography.bodyStrong)
-                        .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                        .font(EDSTheme.shared.typography.bodyStrong)
+                        .foregroundStyle(EDSTheme.shared.colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
                     if let subtitle = link.subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(SHCTheme.shared.typography.caption)
-                            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                            .font(EDSTheme.shared.typography.caption)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                             .lineLimit(2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
 
-                Spacer(minLength: SHCTheme.shared.spacing.xs)
+                Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(SHCTheme.shared.colors.textTertiary)
+                    .foregroundStyle(EDSTheme.shared.colors.textTertiary)
             }
-            .padding(SHCTheme.shared.spacing.md)
+            .padding(EDSTheme.shared.spacing.md)
             .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                    .fill(SHCTheme.shared.colors.cardGrayBackground)
+                RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                    .fill(EDSTheme.shared.colors.cardGrayBackground)
             )
-            .contentShape(RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
         #if os(iOS)
@@ -1636,26 +1655,26 @@ private struct SHCAnnouncementRow: View {
     let markAsRead: () -> Void
 
     var body: some View {
-        SHCGroup(padding: SHCTheme.shared.spacing.md, showsBorder: isUnread) {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
+        EDSGroup(padding: EDSTheme.shared.spacing.md, showsBorder: isUnread) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
                 Button {
                     withAnimation(.easeInOut(duration: 0.16)) {
                         isExpanded.toggle()
                     }
                     markAsRead()
                 } label: {
-                    HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                    HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
                         Image(systemName: item.level.systemImage)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(levelColor)
                             .frame(width: 34, height: 34)
                             .background(
-                                RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                                RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
                                     .fill(levelColor.opacity(0.12))
                             )
 
-                        VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.xs) {
+                        VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
+                            HStack(alignment: .firstTextBaseline, spacing: EDSTheme.shared.spacing.xs) {
                                 if item.isPinned {
                                     SHCUnreadBadge(
                                         text: packageL(SwiftHelpCenterL10n.helpCenterPinned),
@@ -1666,8 +1685,8 @@ private struct SHCAnnouncementRow: View {
                                 SHCUnreadBadge(text: packageL(item.level.localizationKey), color: levelColor)
 
                                 Text(item.title)
-                                    .font(SHCTheme.shared.typography.bodyStrong)
-                                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                                    .font(EDSTheme.shared.typography.bodyStrong)
+                                    .foregroundStyle(EDSTheme.shared.colors.textPrimary)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 if isUnread {
@@ -1676,18 +1695,18 @@ private struct SHCAnnouncementRow: View {
                             }
 
                             Text(item.message)
-                                .font(SHCTheme.shared.typography.body)
-                                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                                .font(EDSTheme.shared.typography.body)
+                                .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                                 .lineLimit(isExpanded ? nil : 2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        Spacer(minLength: SHCTheme.shared.spacing.xs)
+                        Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(SHCTheme.shared.colors.textTertiary)
-                            .padding(.top, SHCTheme.shared.spacing.xxs)
+                            .foregroundStyle(EDSTheme.shared.colors.textTertiary)
+                            .padding(.top, EDSTheme.shared.spacing.xxs)
                     }
                     .contentShape(Rectangle())
                 }
@@ -1714,13 +1733,13 @@ private struct SHCAnnouncementRow: View {
     private var levelColor: Color {
         switch item.level {
         case .info:
-            return SHCTheme.shared.colors.accent
+            return EDSTheme.shared.colors.accent
         case .success:
-            return SHCTheme.shared.colors.success
+            return EDSTheme.shared.colors.success
         case .warning:
-            return SHCTheme.shared.colors.warning
+            return EDSTheme.shared.colors.warning
         case .critical:
-            return SHCTheme.shared.colors.danger
+            return EDSTheme.shared.colors.danger
         }
     }
 }
@@ -1733,46 +1752,46 @@ private struct SHCAnnouncementSummaryRow: View {
     let expand: () -> Void
 
     var body: some View {
-        SHCGroup(padding: SHCTheme.shared.spacing.md, showsBorder: isUnread) {
+        EDSGroup(padding: EDSTheme.shared.spacing.md, showsBorder: isUnread) {
             Button(action: expand) {
-                HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
                     Image(systemName: item.level.systemImage)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(levelColor)
                         .frame(width: 34, height: 34)
                         .background(
-                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
                                 .fill(levelColor.opacity(0.12))
                         )
 
-                    VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                        HStack(alignment: .center, spacing: SHCTheme.shared.spacing.xs) {
+                    VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
+                        HStack(alignment: .center, spacing: EDSTheme.shared.spacing.xs) {
                             announcementBadges
 
-                            Spacer(minLength: SHCTheme.shared.spacing.xs)
+                            Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                             SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : levelColor)
                         }
 
                         Text(item.title)
-                            .font(SHCTheme.shared.typography.bodyStrong)
-                            .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                            .font(EDSTheme.shared.typography.bodyStrong)
+                            .foregroundStyle(EDSTheme.shared.colors.textPrimary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text(item.message)
-                            .font(SHCTheme.shared.typography.body)
-                            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                            .font(EDSTheme.shared.typography.body)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Spacer(minLength: SHCTheme.shared.spacing.xs)
+                    Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SHCTheme.shared.colors.textTertiary)
-                    .padding(.top, SHCTheme.shared.spacing.xxs)
+                        .foregroundStyle(EDSTheme.shared.colors.textTertiary)
+                    .padding(.top, EDSTheme.shared.spacing.xxs)
                 }
                 .contentShape(Rectangle())
             }
@@ -1799,13 +1818,13 @@ private struct SHCAnnouncementSummaryRow: View {
     private var levelColor: Color {
         switch item.level {
         case .info:
-            return SHCTheme.shared.colors.accent
+            return EDSTheme.shared.colors.accent
         case .success:
-            return SHCTheme.shared.colors.success
+            return EDSTheme.shared.colors.success
         case .warning:
-            return SHCTheme.shared.colors.warning
+            return EDSTheme.shared.colors.warning
         case .critical:
-            return SHCTheme.shared.colors.danger
+            return EDSTheme.shared.colors.danger
         }
     }
 }
@@ -1816,17 +1835,17 @@ private struct SHCHelpFAQRow: View {
     var body: some View {
         DisclosureGroup {
             Text(item.answer)
-                .font(SHCTheme.shared.typography.body)
-                .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                .font(EDSTheme.shared.typography.body)
+                .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, SHCTheme.shared.spacing.xs)
+                .padding(.top, EDSTheme.shared.spacing.xs)
         } label: {
             Text(item.question)
-                .font(SHCTheme.shared.typography.bodyStrong)
-                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                .font(EDSTheme.shared.typography.bodyStrong)
+                .foregroundStyle(EDSTheme.shared.colors.textPrimary)
         }
-        .padding(.vertical, SHCTheme.shared.spacing.sm)
+        .padding(.vertical, EDSTheme.shared.spacing.sm)
     }
 }
 
@@ -1844,17 +1863,17 @@ private struct SHCHelpActionButton<LabelContent: View>: View {
     var body: some View {
         Button(action: action) {
             label()
-                .font(SHCTheme.shared.typography.bodyStrong)
+                .font(EDSTheme.shared.typography.bodyStrong)
                 .foregroundStyle(accentColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
-                .frame(height: SHCTheme.shared.controlSize.buttonHeight)
+                .frame(height: EDSTheme.shared.controlSize.buttonHeight)
                 #if os(iOS)
                 .frame(maxWidth: .infinity)
                 #endif
-                .padding(.horizontal, SHCTheme.shared.spacing.md)
+                .padding(.horizontal, EDSTheme.shared.spacing.md)
                 .background(background)
-                .contentShape(RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -1863,10 +1882,10 @@ private struct SHCHelpActionButton<LabelContent: View>: View {
     private var background: some View {
         switch role {
         case .soft:
-            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                 .fill(accentColor.opacity(0.12))
         case .secondary:
-            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
+            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                 .stroke(accentColor, lineWidth: 1.5)
         }
     }
@@ -1882,19 +1901,19 @@ private struct SHCVersionHistoryRow: View {
     let markAsRead: () -> Void
 
     var body: some View {
-        SHCGroup(showsBorder: isUnread) {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.md) {
+        EDSGroup(showsBorder: isUnread) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.md) {
                 header
 
                 Text(item.changes)
-                    .font(SHCTheme.shared.typography.body)
-                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                    .font(EDSTheme.shared.typography.body)
+                    .foregroundStyle(EDSTheme.shared.colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let videoTitle = item.videoTitle, !videoTitle.isEmpty {
                     Text(videoTitle)
-                        .font(SHCTheme.shared.typography.caption)
-                        .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                        .font(EDSTheme.shared.typography.caption)
+                        .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                 }
 
                 actions
@@ -1904,13 +1923,13 @@ private struct SHCVersionHistoryRow: View {
 
     private var header: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+            HStack(alignment: .firstTextBaseline, spacing: EDSTheme.shared.spacing.sm) {
                 versionTitle
-                Spacer(minLength: SHCTheme.shared.spacing.md)
+                Spacer(minLength: EDSTheme.shared.spacing.md)
                 versionDate
             }
 
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                 versionTitle
                 versionDate
             }
@@ -1918,14 +1937,14 @@ private struct SHCVersionHistoryRow: View {
     }
 
     private var versionTitle: some View {
-        HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+        HStack(alignment: .firstTextBaseline, spacing: EDSTheme.shared.spacing.sm) {
             if isUnread {
                 SHCUnreadDot(color: unreadColor)
             }
 
             Text(item.versionName)
-                .font(SHCTheme.shared.typography.bodyStrong)
-                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                .font(EDSTheme.shared.typography.bodyStrong)
+                .foregroundStyle(EDSTheme.shared.colors.textPrimary)
 
             if isUnread {
                 SHCUnreadBadge(text: packageL(SwiftHelpCenterL10n.helpCenterNew), color: unreadColor)
@@ -1935,17 +1954,17 @@ private struct SHCVersionHistoryRow: View {
 
     private var versionDate: some View {
         Text(formattedDate(item.publishedAt))
-            .font(SHCTheme.shared.typography.caption)
-            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+            .font(EDSTheme.shared.typography.caption)
+            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
     }
 
     private var actions: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
+            HStack(spacing: EDSTheme.shared.spacing.sm) {
                 videoButtons
             }
 
-            VStack(spacing: SHCTheme.shared.spacing.sm) {
+            VStack(spacing: EDSTheme.shared.spacing.sm) {
                 videoButtons
             }
         }
@@ -1980,23 +1999,23 @@ private struct SHCVersionHistorySummaryRow: View {
     let expand: () -> Void
 
     var body: some View {
-        SHCGroup(showsBorder: isUnread) {
+        EDSGroup(showsBorder: isUnread) {
             Button(action: expand) {
-                HStack(alignment: .top, spacing: SHCTheme.shared.spacing.sm) {
+                HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(accentColor)
                         .frame(width: 34, height: 34)
                         .background(
-                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
+                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
                                 .fill(accentColor.opacity(0.12))
                         )
 
-                    VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
-                        HStack(alignment: .center, spacing: SHCTheme.shared.spacing.xs) {
+                    VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
+                        HStack(alignment: .center, spacing: EDSTheme.shared.spacing.xs) {
                             versionDate
 
-                            Spacer(minLength: SHCTheme.shared.spacing.xs)
+                            Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                             SHCUnreadBadge(text: summaryText, color: isUnread ? unreadColor : accentColor)
                         }
@@ -2004,18 +2023,18 @@ private struct SHCVersionHistorySummaryRow: View {
                         versionTitle
 
                         Text(firstChangeSummary)
-                            .font(SHCTheme.shared.typography.body)
-                            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                            .font(EDSTheme.shared.typography.body)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Spacer(minLength: SHCTheme.shared.spacing.xs)
+                    Spacer(minLength: EDSTheme.shared.spacing.xs)
 
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SHCTheme.shared.colors.textTertiary)
-                    .padding(.top, SHCTheme.shared.spacing.xxs)
+                        .foregroundStyle(EDSTheme.shared.colors.textTertiary)
+                    .padding(.top, EDSTheme.shared.spacing.xxs)
                 }
                 .contentShape(Rectangle())
             }
@@ -2024,14 +2043,14 @@ private struct SHCVersionHistorySummaryRow: View {
     }
 
     private var versionTitle: some View {
-        HStack(alignment: .firstTextBaseline, spacing: SHCTheme.shared.spacing.sm) {
+        HStack(alignment: .firstTextBaseline, spacing: EDSTheme.shared.spacing.sm) {
             if isUnread {
                 SHCUnreadDot(color: unreadColor)
             }
 
             Text(item.versionName)
-                .font(SHCTheme.shared.typography.bodyStrong)
-                .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                .font(EDSTheme.shared.typography.bodyStrong)
+                .foregroundStyle(EDSTheme.shared.colors.textPrimary)
 
             if isUnread {
                 SHCUnreadBadge(text: packageL(SwiftHelpCenterL10n.helpCenterNew), color: unreadColor)
@@ -2041,8 +2060,8 @@ private struct SHCVersionHistorySummaryRow: View {
 
     private var versionDate: some View {
         Text(formattedDate(item.publishedAt))
-            .font(SHCTheme.shared.typography.caption)
-            .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+            .font(EDSTheme.shared.typography.caption)
+            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
     }
 
     private var firstChangeSummary: String {
@@ -2075,10 +2094,10 @@ private struct SHCUnreadBadge: View {
 
     var body: some View {
         Text(text)
-            .font(SHCTheme.shared.typography.captionStrong)
+            .font(EDSTheme.shared.typography.captionStrong)
             .foregroundStyle(color)
-            .padding(.horizontal, SHCTheme.shared.spacing.xs)
-            .padding(.vertical, SHCTheme.shared.spacing.xxs)
+            .padding(.horizontal, EDSTheme.shared.spacing.xs)
+            .padding(.vertical, EDSTheme.shared.spacing.xxs)
             .background(
                 Capsule(style: .continuous)
                     .fill(color.opacity(0.12))

@@ -14,7 +14,7 @@ import AppKit
 import UIKit
 #endif
 import UniformTypeIdentifiers
-import SHCDesignSystem
+import EasyDesignSystem
 
 // MARK: - Configuration
 
@@ -424,7 +424,7 @@ public struct FeedbackView: View {
 
     public var body: some View {
         ScrollView {
-            SHCPageStack(maxWidth: 720) {
+            EDSPageStack(maxWidth: 720) {
                 feedbackHeader
                 feedbackActions
                 feedbackForm
@@ -439,24 +439,24 @@ public struct FeedbackView: View {
     }
 
     private var feedbackHeader: some View {
-        HStack(alignment: .top, spacing: SHCTheme.shared.spacing.md) {
+        HStack(alignment: .top, spacing: EDSTheme.shared.spacing.md) {
             Image(systemName: "bubble.left.and.text.bubble.right.fill")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(SHCTheme.shared.colors.accent)
+                .foregroundStyle(EDSTheme.shared.colors.accent)
                 .frame(width: 48, height: 48)
                 .background(
-                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                        .fill(SHCTheme.shared.colors.accentSoft)
+                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                        .fill(EDSTheme.shared.colors.accentSoft)
                 )
 
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.xxs) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                 Text(packageL("FeedbackView.title"))
-                    .font(SHCTheme.shared.typography.hero)
-                    .foregroundStyle(SHCTheme.shared.colors.textPrimary)
+                    .font(EDSTheme.shared.typography.hero)
+                    .foregroundStyle(EDSTheme.shared.colors.textPrimary)
 
                 Text(packageL("FeedbackView.followup"))
-                    .font(SHCTheme.shared.typography.body)
-                    .foregroundStyle(SHCTheme.shared.colors.textSecondary)
+                    .font(EDSTheme.shared.typography.body)
+                    .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -465,11 +465,11 @@ public struct FeedbackView: View {
 
     private var feedbackActions: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
+            HStack(spacing: EDSTheme.shared.spacing.sm) {
                 feedbackActionButtons
             }
 
-            VStack(spacing: SHCTheme.shared.spacing.sm) {
+            VStack(spacing: EDSTheme.shared.spacing.sm) {
                 feedbackActionButtons
             }
         }
@@ -484,7 +484,7 @@ public struct FeedbackView: View {
                 Label(packageL("FeedbackView.rate"), systemImage: "star")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(SHCSoftButtonStyle())
+            .buttonStyle(EDSSoftButtonStyle())
         }
 
         if let config = FeedbackManager.shared.config {
@@ -494,13 +494,13 @@ public struct FeedbackView: View {
                 Label(packageL("FeedbackView.techSupport"), systemImage: "lifepreserver")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(SHCSecondaryButtonStyle())
+            .buttonStyle(EDSSecondaryButtonStyle())
         }
     }
 
     private var feedbackForm: some View {
-        SHCGroup(padding: SHCTheme.shared.spacing.md, style: .filled, showsBorder: true) {
-            VStack(alignment: .leading, spacing: SHCTheme.shared.spacing.sm) {
+        EDSGroup(padding: EDSTheme.shared.spacing.md, style: .filled, showsBorder: true) {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.sm) {
                 if !manager.availableChannels.isEmpty {
                     Picker(packageL("FeedbackView.pickerTitle"), selection: $selectedChannel) {
                         ForEach(manager.availableChannels, id: \.self) { channel in
@@ -515,29 +515,34 @@ public struct FeedbackView: View {
                     placeholder: packageL("FeedbackView.input"),
                     maxLength: 1700
                 )
-                .padding(SHCTheme.shared.spacing.sm)
+                .padding(EDSTheme.shared.spacing.sm)
                 .frame(height: 150)
                 .background(
-                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                        .fill(SHCTheme.shared.colors.pageBackground)
+                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                        .fill(EDSTheme.shared.colors.pageBackground)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                        .stroke(SHCTheme.shared.colors.border, lineWidth: SHCTheme.shared.stroke.hairline)
+                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                        .stroke(EDSTheme.shared.colors.border, lineWidth: EDSTheme.shared.stroke.hairline)
                 )
 
                 TextField(packageL("FeedbackView.contactPlaceholder"), text: $contact)
                     .textFieldStyle(.plain)
-                    .padding(SHCTheme.shared.spacing.sm)
+                    .padding(EDSTheme.shared.spacing.sm)
                     .background(
-                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                            .fill(SHCTheme.shared.colors.pageBackground)
+                        RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                            .fill(EDSTheme.shared.colors.pageBackground)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: SHCTheme.shared.radius.md, style: .continuous)
-                            .stroke(SHCTheme.shared.colors.border, lineWidth: SHCTheme.shared.stroke.hairline)
+                        RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                            .stroke(EDSTheme.shared.colors.border, lineWidth: EDSTheme.shared.stroke.hairline)
                     )
                     .accessibilityLabel(packageL("FeedbackView.contact"))
+
+                Text(packageL(SwiftHelpCenterL10n.feedbackContactHint))
+                    .font(EDSTheme.shared.typography.caption)
+                    .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(isOn: $includeSystemInfo) {
                     Label(packageL("FeedbackView.sysinfo"), systemImage: "desktopcomputer")
@@ -545,13 +550,13 @@ public struct FeedbackView: View {
 
                 if includeSystemInfo {
                     Text(systemInfo)
-                        .font(SHCTheme.shared.typography.caption)
-                        .foregroundStyle(SHCTheme.shared.colors.textSecondary)
-                        .padding(SHCTheme.shared.spacing.xs)
+                        .font(EDSTheme.shared.typography.caption)
+                        .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                        .padding(EDSTheme.shared.spacing.xs)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
-                            RoundedRectangle(cornerRadius: SHCTheme.shared.radius.sm, style: .continuous)
-                                .fill(SHCTheme.shared.colors.subtleFill)
+                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
+                                .fill(EDSTheme.shared.colors.subtleFill)
                         )
                 }
 
@@ -562,7 +567,7 @@ public struct FeedbackView: View {
 
     private var sendButton: some View {
         Button(action: sendFeedbackAction) {
-            HStack(spacing: SHCTheme.shared.spacing.sm) {
+            HStack(spacing: EDSTheme.shared.spacing.sm) {
                 if manager.isSending {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle())
@@ -573,7 +578,7 @@ public struct FeedbackView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(SHCPrimaryButtonStyle())
+        .buttonStyle(EDSPrimaryButtonStyle())
         .keyboardShortcut(.defaultAction)
     }
 

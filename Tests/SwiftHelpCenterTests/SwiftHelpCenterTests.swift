@@ -1,70 +1,6 @@
 import Testing
 import Foundation
-import SwiftUI
 @testable import SwiftHelpCenter
-import SHCDesignSystem
-
-// MARK: - DesignSystem: Color Parsing
-
-@Test("Color hex RGB parsing #RRGGBB")
-func colorHexRGB() {
-    let color = Color(hexRGB: "#FF0000")
-    #expect(color.toHex() == "#FF0000")
-}
-
-@Test("Color hex RGB short form #RGB")
-func colorHexRGBShort() {
-    let color = Color(hexRGB: "#F00")
-    #expect(color.toHex() == "#FF0000")
-}
-
-@Test("Color hex ARGB with alpha")
-func colorHexARGB() {
-    let color = Color(hexARGB: "#80FF0000")
-    #expect(color.toHex() == "#FF0000")
-}
-
-@Test("Color hex RGBA with alpha")
-func colorHexRGBA() {
-    let color = Color(hexRGBA: "#FF000080")
-    #expect(color.toHex() == "#FF0000")
-}
-
-// MARK: - DesignSystem: SHCDesignTokens JSON Round-trip
-
-@Test("DesignTokens JSON encode/decode round-trip")
-func designTokensRoundTrip() throws {
-    var tokens = SHCDesignTokens()
-    tokens.colors.primary = Color(hexRGB: "#FF6B00")
-    tokens.colors.accent = Color(hexRGB: "#FF6B00")
-    tokens.colors.success = Color(hexRGB: "#27B15A")
-    tokens.colors.warning = Color(hexRGB: "#F9B135")
-    tokens.colors.danger = Color(hexRGB: "#E54444")
-    tokens.spacing.lg = 24
-    tokens.radius.md = 16
-
-    let data = try JSONEncoder().encode(tokens)
-    let decoded = try JSONDecoder().decode(SHCDesignTokens.self, from: data)
-
-    #expect(decoded.colors.primary.toHex() == "#FF6B00")
-    #expect(decoded.colors.accent.toHex() == "#FF6B00")
-    #expect(decoded.colors.success.toHex() == "#27B15A")
-    #expect(decoded.colors.warning.toHex() == "#F9B135")
-    #expect(decoded.colors.danger.toHex() == "#E54444")
-    #expect(decoded.spacing.lg == 24)
-    #expect(decoded.radius.md == 16)
-}
-
-@Test("DesignTokens defaults remain when JSON has partial keys")
-func designTokensPartialDecode() throws {
-    let json = """
-    {"colors": {"primary": "#FF0000"}}
-    """.data(using: .utf8)!
-    let decoded = try JSONDecoder().decode(SHCDesignTokens.self, from: json)
-
-    #expect(decoded.colors.primary.toHex() == "#FF0000")
-    #expect(decoded.colors.accent.toHex() == SHCColorTokens().accent.toHex())
-}
 
 // MARK: - HelpCenter: SHCHelpVideoLink
 
@@ -535,7 +471,9 @@ func feedbackPayloadCombinesContentAndContact() {
     )
 
     #expect(payload.combinedContent.contains("The export failed."))
-    #expect(payload.combinedContent.contains("Contact: user@example.com"))
+    #expect(payload.combinedContent.contains("\(packageL(SwiftHelpCenterL10n.feedbackManagerContact)): user@example.com"))
+    let anonymous = FeedbackPayload(content: "Anonymous", contact: "  \n", includeSystemInfo: false)
+    #expect(anonymous.combinedContent == "Anonymous")
 }
 // MARK: - SHCDefaultsTools: Codable Support
 

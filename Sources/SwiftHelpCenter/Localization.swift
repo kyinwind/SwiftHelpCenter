@@ -47,6 +47,12 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterAnnouncementLevelWarning = "SHCHelpCenter.announcementLevel.warning"
     public static let helpCenterAnnouncementLevelCritical = "SHCHelpCenter.announcementLevel.critical"
 
+    public static let helpCenterTrainingVideos = "SHCHelpCenter.trainingVideos"
+    public static let helpCenterViewAllTrainingVideos = "SHCHelpCenter.viewAllTrainingVideos"
+    public static let helpCenterCollapseTrainingVideos = "SHCHelpCenter.collapseTrainingVideos"
+    public static let helpCenterOpenTrainingVideoHint = "SHCHelpCenter.openTrainingVideoHint"
+    public static let feedbackContactHint = "FeedbackView.contactHint"
+
     // MARK: - FeedbackManager
     public static let feedbackTitle = "FeedbackView.title"
     public static let feedbackRate = "FeedbackView.rate"

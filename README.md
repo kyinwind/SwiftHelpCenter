@@ -18,7 +18,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 - [2. 用户反馈 (FeedbackManager)](#2-用户反馈-feedbackmanager)
 - [3. 国际化 (Localization)](#3-国际化-localization)
 - [4. 评分弹窗管理 (ReviewPromptManager)](#4-评分弹窗管理-reviewpromptmanager)
-- [5. DesignSystem](#5-designsystem)
+- [5. EasyDesignSystem](#5-easydesignsystem)
 
 ---
 
@@ -30,7 +30,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 | **FeedbackManager** | 多通道反馈系统（Discord / 钉钉 / 邮件），支持截图上传（macOS） |
 | **Localization** | 用户可手动切换语言的国际化框架（zh-Hans / English） |
 | **ReviewPromptManager** | 基于使用次数和天数的双阈值评分弹窗 |
-| **SHCDesignSystem** | （独立 sub-target）完整的 Design Token + 组件库 |
+| **EasyDesignSystem** | 独立 Swift Package，提供 Design Token 与通用组件 |
 
 ---
 
@@ -611,12 +611,15 @@ ReviewPromptManager.shared.cleanData()     // 清空数据（测试用）
 
 ---
 
-## 5. DesignSystem
+## 5. EasyDesignSystem
 
-> `SwiftHelpCenter` 内部依赖的 Design System，同时也暴露为独立 sub-target `SHCDesignSystem`。你可以单独导入使用。
+`SwiftHelpCenter` 通过 Swift Package Manager 依赖独立的
+[`EasyDesignSystem`](https://github.com/kyinwind/EasyDesignSystem) 包。添加
+`SwiftHelpCenter` 时会自动解析该依赖；需要直接使用设计系统组件时，也可以在宿主
+App 中显式添加 `EasyDesignSystem` 产品。
 
 ```swift
-import SHCDesignSystem
+import EasyDesignSystem
 ```
 
 ### 核心能力
@@ -624,29 +627,29 @@ import SHCDesignSystem
 - **Theme Token** — 颜色、间距、圆角、字体、控件尺寸、阴影、渐变
 - **组件库** — 按钮（4 种样式）、徽章、开关、卡片、分组、侧边栏、状态视图、流式标签
 - **JSON 导入导出** — 完整主题可序列化为 JSON，支持运行时加载
-- **可视化编辑器** — `SHCDesignSystemPreview` 所见即所得的 Token 编辑（仅 macOS）
-- **组件 Gallery** — `SHCDesignSystemGallery` 展示所有组件用法（仅 macOS）
+- **自适应环境** — 支持平台、输入方式、字号和尺寸变化
+- **组件 Catalog** — 独立的 `EasyDesignSystemCatalog` 产品用于组件展示
 
 ### 基础用法
 
 ```swift
 // 配置主题
-SHCTheme.shared.configure { tokens in
-    tokens.colors.primary = "#FF6B00"
+EDSTheme.shared.configure { tokens in
+    tokens.colors.primary = Color(hexRGB: "#FF6B00")
 }
 
 // 应用预设
-SHCTheme.shared.applyPreset(.rightClickMate)
+EDSTheme.shared.applyPreset(.orange)
 
 // 从 JSON 加载
-try SHCTheme.shared.configure(jsonResource: "MyAppTheme")
+try EDSTheme.shared.configure(jsonResource: "MyAppTheme")
 
 // 使用组件
-SHCButton("保存", role: .primary, systemImage: "checkmark") { save() }
-SHCGroup("通用设置") {
-    SHCSettingRow("语言") { SHCToggle(isOn: $isEnabled, label: "启用") }
+EDSButton("保存", role: .primary, systemImage: "checkmark") { save() }
+EDSGroup("通用设置") {
+    EDSSettingRow("语言") { EDSToggle(isOn: $isEnabled, label: "启用") }
 }
-SHCCard { Text("卡片内容") }
+EDSCard { Text("卡片内容") }
 ```
 
 ---
@@ -660,3 +663,36 @@ SHCCard { Text("卡片内容") }
 ## 许可证
 
 MIT
+
+### 培训视频
+
+在现有帮助中心配置上设置 `trainingVideos`，即可显示独立的培训视频板块：
+
+```swift
+configuration.trainingVideos = SHCTrainingVideoConfiguration(
+    items: [
+        SHCTrainingVideoItem(
+            id: "getting-started",
+            title: String(localized: "training.gettingStarted"), // 宿主 App 的资源
+            url: URL(string: "https://example.com/videos/start")!
+        )
+    ],
+    remoteURL: URL(string: "https://example.com/training-videos.json")
+)
+SHCHelpCenterManager.shared.configure(configuration)
+```
+
+- 只使用本地数据：省略 `remoteURL`。
+- 只使用远程数据：省略 `items`。
+- 混合配置：先显示本地数据，再按稳定 `id` 合并远程数据；相同 ID 更新标题和地址，新增条目追加，保留本地顺序。
+- 默认仅显示第一行，有溢出时提供“查看全部”；展开后 pill 自动换行。无有效视频时隐藏板块。
+- JSON 使用数组，字段为 `id`、`title`、`url`，参考 [示例](examples/training-videos.sample.json)。ID 和标题不能为空，URL 必须为 HTTP / HTTPS 网页；远程配置建议使用 HTTPS。
+- 无效条目跳过；整个文件错误、全部条目无效或请求失败时保留上次成功内容。有效空数组清除远程独有条目，保留本地数据。
+- 每次刷新使用最新远程快照，已从远程移除的远程独有视频不会残留。显式重试或刷新：`await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`。
+- 成功内容仅保存在内存中；跨启动离线保底需提供本地数据。新增配置默认 `nil`，已有调用无需修改。
+
+**国际化：**组件自带文案使用包内中英文资源，跟随 `SHCAppLanguageManager`。视频标题按原文展示，由宿主 App 本地化；远程内容不自动翻译。可按当前语言选择不同 JSON URL，切换内容语言后重新配置相应的本地数据与 URL，同一视频保持稳定 ID。若 App 支持手动语言切换，请使用与该语言偏好一致的宿主本地化方法。
+
+**打开方式：**macOS 通过系统默认 HTTPS 浏览器打开视频网页；iOS 使用系统外部 URL 打开接口，普通网页进入默认浏览器，Universal Links 可能打开关联 App。iOS 的公开通用 URL 接口无法保证所有关联链接强制进入默认浏览器；若必须留在浏览器，请提供不关联 App 的网页地址。参见 [Apple URL 打开选项](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey)。
+
+反馈页的联系方式仍为选填，输入框和下方说明会提醒用户：不提供联系方式，作者无法回复。

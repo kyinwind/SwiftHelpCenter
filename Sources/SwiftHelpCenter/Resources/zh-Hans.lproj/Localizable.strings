@@ -40,7 +40,7 @@
 "FeedbackView.sendFeedback" = "发送反馈";
 "FeedbackView.input" = "请输入您的反馈...";
 "FeedbackView.contact" = "联系方式";
-"FeedbackView.contactPlaceholder" = "邮箱或其他联系方式（可选）";
+"FeedbackView.contactPlaceholder" = "联系方式（选填，不填则作者无法回复）";
 "FeedbackView.sendSuccess" = "反馈发送成功";
 "FeedbackView.sendFail" = "反馈发送失败";
 "FeedbackView.ok" = "确定";
@@ -58,3 +58,13 @@
 "ReviewPromptManager.button.holdOn" = "稍后再说";
 "ReviewPromptManager.button.settings" = "去设置";
 "ReviewPromptManager.button.review" = "去评价";
+
+"FeedbackView.contactHint" = "如需作者回复，请留下邮箱或其他可联系到你的方式。";
+
+"SHCHelpCenter.trainingVideos" = "培训视频";
+
+"SHCHelpCenter.viewAllTrainingVideos" = "查看全部（共 %ld 个）";
+
+"SHCHelpCenter.collapseTrainingVideos" = "收起";
+
+"SHCHelpCenter.openTrainingVideoHint" = "在浏览器中打开视频";
