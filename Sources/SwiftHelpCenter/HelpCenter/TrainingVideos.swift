@@ -124,6 +124,11 @@ private struct SHCVideoContainerWidth: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
+private struct SHCVideoExpandControlWidth: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 /// Shared calculation for the visible prefix; hidden videos aren't interactive views.
 enum SHCTrainingVideoRows {
     static func firstRowCount(widths: [CGFloat], availableWidth: CGFloat, spacing: CGFloat) -> Int {
@@ -145,8 +150,20 @@ struct SHCTrainingVideosSection: View {
     @State private var expanded = false
     @State private var width: CGFloat = 0
     @State private var measuredWidths: [String: CGFloat] = [:]
+    @State private var expandControlWidth: CGFloat = 0
 
     private var firstRowCount: Int {
+        SHCTrainingVideoRows.firstRowCount(
+            widths: items.map { measuredWidths[$0.id] ?? width },
+            availableWidth: max(
+                0,
+                width - (hasOverflow ? expandControlWidth + EDSTheme.shared.spacing.sm : 0)
+            ),
+            spacing: EDSTheme.shared.spacing.sm
+        )
+    }
+
+    private var fullFirstRowCount: Int {
         SHCTrainingVideoRows.firstRowCount(
             widths: items.map { measuredWidths[$0.id] ?? width },
             availableWidth: width,
@@ -157,60 +174,108 @@ struct SHCTrainingVideosSection: View {
     var body: some View {
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.md) {
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        heading
-                        Spacer(minLength: EDSTheme.shared.spacing.sm)
-                        toggle
-                    }
-                    VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xs) {
-                        heading
-                        toggle
+                heading
+
+                EDSGroup(
+                    padding: EDSTheme.shared.spacing.md,
+                    style: .filled,
+                    showsBorder: true
+                ) {
+                    HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
+                        if !expanded {
+                            Image(systemName: "play.rectangle")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(accentColor)
+                                .frame(width: 34, height: 34)
+                                .background(
+                                    RoundedRectangle(
+                                        cornerRadius: EDSTheme.shared.radius.sm,
+                                        style: .continuous
+                                    )
+                                    .fill(accentColor.opacity(0.12))
+                                )
+                                .accessibilityHidden(true)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        }
+
+                        ZStack(alignment: .topTrailing) {
+                            EDSFlowLayout {
+                                ForEach(expanded ? items : Array(items.prefix(firstRowCount))) { item in
+                                    Button { openInBrowser(item.url) } label: {
+                                        pillLabel(item.title)
+                                            .frame(width: max(0, min(measuredWidths[item.id] ?? width, width) - 2 * EDSTheme.shared.spacing.sm))
+                                            .padding(.horizontal, EDSTheme.shared.spacing.sm)
+                                            .padding(.vertical, EDSTheme.shared.spacing.xs)
+                                            .background(accentColor.opacity(0.12), in: Capsule())
+                                            .contentShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(Text(verbatim: item.title))
+                                    .accessibilityHint(Text(packageL(SwiftHelpCenterL10n.helpCenterOpenTrainingVideoHint)))
+                                    .help(item.title)
+                                }
+                            }
+                            .padding(.trailing, !expanded && hasOverflow ? expandControlWidth + EDSTheme.shared.spacing.sm : 0)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .overlay(alignment: .topLeading) {
+                                measuredLabels
+                            }
+
+                            if !expanded, hasOverflow {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.16)) {
+                                        expanded = true
+                                    }
+                                } label: {
+                                    HStack(spacing: EDSTheme.shared.spacing.sm) {
+                                        Text(packageL(SwiftHelpCenterL10n.helpCenterViewAllTrainingVideos, items.count))
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 12, weight: .semibold))
+                                    }
+                                    .font(EDSTheme.shared.typography.bodyStrong)
+                                    .foregroundStyle(accentColor)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                    .background {
+                                        GeometryReader { geometry in
+                                            Color.clear.preference(
+                                                key: SHCVideoExpandControlWidth.self,
+                                                value: geometry.size.width
+                                            )
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(key: SHCVideoContainerWidth.self, value: geometry.size.width)
+                            }
+                        }
+                        .onPreferenceChange(SHCVideoContainerWidth.self) { width = $0 }
+                        .onPreferenceChange(SHCVideoWidths.self) { measuredWidths = $0 }
+                        .onPreferenceChange(SHCVideoExpandControlWidth.self) { expandControlWidth = $0 }
                     }
                 }
-                EDSFlowLayout {
-                    ForEach(expanded ? items : Array(items.prefix(firstRowCount))) { item in
-                        Button { openInBrowser(item.url) } label: {
-                            pillLabel(item.title)
-                                .frame(width: max(0, min(measuredWidths[item.id] ?? width, width) - 2 * EDSTheme.shared.spacing.sm))
-                                .padding(.horizontal, EDSTheme.shared.spacing.sm)
-                                .padding(.vertical, EDSTheme.shared.spacing.xs)
-                                .background(accentColor.opacity(0.12), in: Capsule())
-                                .contentShape(Capsule())
+
+                if expanded, hasOverflow {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            expanded = false
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(verbatim: item.title))
-                        .accessibilityHint(Text(packageL(SwiftHelpCenterL10n.helpCenterOpenTrainingVideoHint)))
-                        .help(item.title)
+                    } label: {
+                        Label(
+                            packageL(SwiftHelpCenterL10n.helpCenterCollapseTrainingVideos),
+                            systemImage: "chevron.up"
+                        )
+                        .font(EDSTheme.shared.typography.bodyStrong)
+                        .foregroundStyle(accentColor)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                GeometryReader { geometry in
-                    Color.clear.preference(key: SHCVideoContainerWidth.self, value: geometry.size.width)
-                }
-            }
-            .overlay(alignment: .topLeading) {
-                // Measure only labels: no offscreen buttons or accessibility elements.
-                ZStack {
-                    ForEach(items) { item in
-                        pillLabel(item.title)
-                            .fixedSize()
-                            .padding(.horizontal, EDSTheme.shared.spacing.sm)
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(key: SHCVideoWidths.self, value: [item.id: geometry.size.width])
-                                }
-                            }
-                    }
-                }
-                .hidden()
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
-            .onPreferenceChange(SHCVideoContainerWidth.self) { width = $0 }
-            .onPreferenceChange(SHCVideoWidths.self) { measuredWidths = $0 }
         }
     }
 
@@ -218,17 +283,29 @@ struct SHCTrainingVideosSection: View {
         EDSSectionTitle(title: packageL(SwiftHelpCenterL10n.helpCenterTrainingVideos))
     }
 
-    @ViewBuilder private var toggle: some View {
-        if items.count > firstRowCount {
-            Button {
-                withAnimation(.easeInOut(duration: 0.16)) { expanded.toggle() }
-            } label: {
-                Text(packageL(expanded ? SwiftHelpCenterL10n.helpCenterCollapseTrainingVideos : SwiftHelpCenterL10n.helpCenterViewAllTrainingVideos, items.count))
+    private var hasOverflow: Bool {
+        items.count > fullFirstRowCount
+    }
+
+    private var measuredLabels: some View {
+        ZStack {
+            ForEach(items) { item in
+                pillLabel(item.title)
+                    .fixedSize()
+                    .padding(.horizontal, EDSTheme.shared.spacing.sm)
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: SHCVideoWidths.self,
+                                value: [item.id: geometry.size.width]
+                            )
+                        }
+                    }
             }
-            .buttonStyle(.plain)
-            .font(EDSTheme.shared.typography.bodyStrong)
-            .foregroundStyle(accentColor)
         }
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func pillLabel(_ title: String) -> some View {
