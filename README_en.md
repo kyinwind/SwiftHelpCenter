@@ -226,6 +226,36 @@ SHCHelpQuickLinkItem.support()           // Open support URL
 
 By default, the help center shows “Rate App” because `appleID` is required. It also shows “Feedback” when `FeedbackManager` is configured. Use `quickLinks` for your own extra entries; set `includeDefaultQuickLinks: false` in `SHCHelpCenterConfiguration` when you want full control.
 
+### Training videos
+
+Add training videos to an existing help-center configuration:
+
+```swift
+configuration.trainingVideos = SHCTrainingVideoConfiguration(
+    items: [
+        SHCTrainingVideoItem(
+            id: "getting-started",
+            title: String(localized: "training.gettingStarted"), // Host app resources
+            url: URL(string: "https://example.com/videos/start")!
+        )
+    ],
+    remoteURL: URL(string: "https://example.com/training-videos.json")
+)
+SHCHelpCenterManager.shared.configure(configuration)
+```
+
+- Local only: omit `remoteURL`. Remote only: omit `items`. Both: show local data immediately, then merge by stable `id`.
+- Matching remote IDs update titles and URLs in place. New IDs append in JSON order. Local items remain available.
+- The section initially displays one actual row. “View all” expands wrapping pills; empty sections are hidden.
+- Provide a JSON array with `id`, `title`, and `url`; see the [sample](examples/training-videos.sample.json). IDs and titles must be nonempty, and links must be HTTP/HTTPS URLs. HTTPS is recommended for the JSON endpoint.
+- Invalid entries are skipped. Invalid files, entirely invalid nonempty arrays, and failed requests preserve the last successful result. An empty array removes remote-only items while retaining local data.
+- Each successful refresh replaces the remote snapshot, so removed remote-only items do not linger. Retry or refresh with `await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`.
+- Results are kept in memory only. Supply local items for offline availability after relaunch. The new configuration defaults to `nil`, preserving existing callers.
+
+**Localization:** Package UI uses the existing English and Simplified Chinese resources and follows `SHCAppLanguageManager`. Video titles are caller-localized strings displayed verbatim. Remote titles are not translated automatically. Select a language-specific JSON URL and reconfigure local items and the URL when the content language changes; keep stable IDs across languages. Apps with a manual language preference should localize host strings using that same preference.
+
+**Opening links:** macOS explicitly opens the system's default HTTPS browser. iOS uses the system external URL API: regular web links open in the default browser, while Universal Links may open an associated app. The generic public iOS URL API cannot guarantee forcing every associated link into the default browser; use an unassociated webpage URL when browser-only behavior is required. See [Apple's URL opening options](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey).
+
 **SHCHelpFAQItem** — FAQ entry
 
 ```swift
@@ -667,35 +697,5 @@ EDSCard { Text("Card content") }
 ## License
 
 MIT
-
-### Training videos
-
-Add training videos to an existing help-center configuration:
-
-```swift
-configuration.trainingVideos = SHCTrainingVideoConfiguration(
-    items: [
-        SHCTrainingVideoItem(
-            id: "getting-started",
-            title: String(localized: "training.gettingStarted"), // Host app resources
-            url: URL(string: "https://example.com/videos/start")!
-        )
-    ],
-    remoteURL: URL(string: "https://example.com/training-videos.json")
-)
-SHCHelpCenterManager.shared.configure(configuration)
-```
-
-- Local only: omit `remoteURL`. Remote only: omit `items`. Both: show local data immediately, then merge by stable `id`.
-- Matching remote IDs update titles and URLs in place. New IDs append in JSON order. Local items remain available.
-- The section initially displays one actual row. “View all” expands wrapping pills; empty sections are hidden.
-- Provide a JSON array with `id`, `title`, and `url`; see the [sample](examples/training-videos.sample.json). IDs and titles must be nonempty, and links must be HTTP/HTTPS URLs. HTTPS is recommended for the JSON endpoint.
-- Invalid entries are skipped. Invalid files, entirely invalid nonempty arrays, and failed requests preserve the last successful result. An empty array removes remote-only items while retaining local data.
-- Each successful refresh replaces the remote snapshot, so removed remote-only items do not linger. Retry or refresh with `await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`.
-- Results are kept in memory only. Supply local items for offline availability after relaunch. The new configuration defaults to `nil`, preserving existing callers.
-
-**Localization:** Package UI uses the existing English and Simplified Chinese resources and follows `SHCAppLanguageManager`. Video titles are caller-localized strings displayed verbatim. Remote titles are not translated automatically. Select a language-specific JSON URL and reconfigure local items and the URL when the content language changes; keep stable IDs across languages. Apps with a manual language preference should localize host strings using that same preference.
-
-**Opening links:** macOS explicitly opens the system's default HTTPS browser. iOS uses the system external URL API: regular web links open in the default browser, while Universal Links may open an associated app. The generic public iOS URL API cannot guarantee forcing every associated link into the default browser; use an unassociated webpage URL when browser-only behavior is required. See [Apple's URL opening options](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey).
 
 Contact information on the feedback form remains optional. The placeholder and persistent hint explain that the developer needs contact information to reply.

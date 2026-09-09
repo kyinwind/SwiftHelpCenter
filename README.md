@@ -224,6 +224,37 @@ SHCHelpQuickLinkItem.support()          // 打开技术支持
 
 默认情况下，帮助中心会自动显示“给应用评分”；当 `FeedbackManager` 已配置时，会自动显示“反馈问题”。`quickLinks` 适合放开发者自己的额外入口；如果想完全自定义快速入口，可以在 `SHCHelpCenterConfiguration` 中设置 `includeDefaultQuickLinks: false`。
 
+### 培训视频
+
+在现有帮助中心配置上设置 `trainingVideos`，即可显示独立的培训视频板块：
+
+```swift
+configuration.trainingVideos = SHCTrainingVideoConfiguration(
+    items: [
+        SHCTrainingVideoItem(
+            id: "getting-started",
+            title: String(localized: "training.gettingStarted"), // 宿主 App 的资源
+            url: URL(string: "https://example.com/videos/start")!
+        )
+    ],
+    remoteURL: URL(string: "https://example.com/training-videos.json")
+)
+SHCHelpCenterManager.shared.configure(configuration)
+```
+
+- 只使用本地数据：省略 `remoteURL`。
+- 只使用远程数据：省略 `items`。
+- 混合配置：先显示本地数据，再按稳定 `id` 合并远程数据；相同 ID 更新标题和地址，新增条目追加，保留本地顺序。
+- 默认仅显示第一行，有溢出时提供“查看全部”；展开后 pill 自动换行。无有效视频时隐藏板块。
+- JSON 使用数组，字段为 `id`、`title`、`url`，参考 [示例](examples/training-videos.sample.json)。ID 和标题不能为空，URL 必须为 HTTP / HTTPS 网页；远程配置建议使用 HTTPS。
+- 无效条目跳过；整个文件错误、全部条目无效或请求失败时保留上次成功内容。有效空数组清除远程独有条目，保留本地数据。
+- 每次刷新使用最新远程快照，已从远程移除的远程独有视频不会残留。显式重试或刷新：`await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`。
+- 成功内容仅保存在内存中；跨启动离线保底需提供本地数据。新增配置默认 `nil`，已有调用无需修改。
+
+**国际化：**组件自带文案使用包内中英文资源，跟随 `SHCAppLanguageManager`。视频标题按原文展示，由宿主 App 本地化；远程内容不自动翻译。可按当前语言选择不同 JSON URL，切换内容语言后重新配置相应的本地数据与 URL，同一视频保持稳定 ID。若 App 支持手动语言切换，请使用与该语言偏好一致的宿主本地化方法。
+
+**打开方式：**macOS 通过系统默认 HTTPS 浏览器打开视频网页；iOS 使用系统外部 URL 打开接口，普通网页进入默认浏览器，Universal Links 可能打开关联 App。iOS 的公开通用 URL 接口无法保证所有关联链接强制进入默认浏览器；若必须留在浏览器，请提供不关联 App 的网页地址。参见 [Apple URL 打开选项](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey)。
+
 **SHCHelpFAQItem** — FAQ 条目
 
 ```swift
@@ -663,36 +694,5 @@ EDSCard { Text("卡片内容") }
 ## 许可证
 
 MIT
-
-### 培训视频
-
-在现有帮助中心配置上设置 `trainingVideos`，即可显示独立的培训视频板块：
-
-```swift
-configuration.trainingVideos = SHCTrainingVideoConfiguration(
-    items: [
-        SHCTrainingVideoItem(
-            id: "getting-started",
-            title: String(localized: "training.gettingStarted"), // 宿主 App 的资源
-            url: URL(string: "https://example.com/videos/start")!
-        )
-    ],
-    remoteURL: URL(string: "https://example.com/training-videos.json")
-)
-SHCHelpCenterManager.shared.configure(configuration)
-```
-
-- 只使用本地数据：省略 `remoteURL`。
-- 只使用远程数据：省略 `items`。
-- 混合配置：先显示本地数据，再按稳定 `id` 合并远程数据；相同 ID 更新标题和地址，新增条目追加，保留本地顺序。
-- 默认仅显示第一行，有溢出时提供“查看全部”；展开后 pill 自动换行。无有效视频时隐藏板块。
-- JSON 使用数组，字段为 `id`、`title`、`url`，参考 [示例](examples/training-videos.sample.json)。ID 和标题不能为空，URL 必须为 HTTP / HTTPS 网页；远程配置建议使用 HTTPS。
-- 无效条目跳过；整个文件错误、全部条目无效或请求失败时保留上次成功内容。有效空数组清除远程独有条目，保留本地数据。
-- 每次刷新使用最新远程快照，已从远程移除的远程独有视频不会残留。显式重试或刷新：`await SHCHelpCenterManager.shared.fetchRemoteTrainingVideos()`。
-- 成功内容仅保存在内存中；跨启动离线保底需提供本地数据。新增配置默认 `nil`，已有调用无需修改。
-
-**国际化：**组件自带文案使用包内中英文资源，跟随 `SHCAppLanguageManager`。视频标题按原文展示，由宿主 App 本地化；远程内容不自动翻译。可按当前语言选择不同 JSON URL，切换内容语言后重新配置相应的本地数据与 URL，同一视频保持稳定 ID。若 App 支持手动语言切换，请使用与该语言偏好一致的宿主本地化方法。
-
-**打开方式：**macOS 通过系统默认 HTTPS 浏览器打开视频网页；iOS 使用系统外部 URL 打开接口，普通网页进入默认浏览器，Universal Links 可能打开关联 App。iOS 的公开通用 URL 接口无法保证所有关联链接强制进入默认浏览器；若必须留在浏览器，请提供不关联 App 的网页地址。参见 [Apple URL 打开选项](https://developer.apple.com/documentation/uikit/uiapplication/openexternalurloptionskey)。
 
 反馈页的联系方式仍为选填，输入框和下方说明会提醒用户：不提供联系方式，作者无法回复。
