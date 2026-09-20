@@ -135,7 +135,7 @@ func trainingVideoResources() throws {
                 SwiftHelpCenterL10n.helpCenterTrainingVideos, SwiftHelpCenterL10n.helpCenterViewAllTrainingVideos,
                 SwiftHelpCenterL10n.helpCenterCollapseTrainingVideos, SwiftHelpCenterL10n.helpCenterOpenTrainingVideoHint]
     for language in ["en", "zh-Hans"] {
-        let path = try #require(Bundle.module.path(forResource: language.lowercased(), ofType: "lproj"))
+        let path = try #require(Bundle.module.path(forResource: language, ofType: "lproj"))
         let bundle = try #require(Bundle(path: path))
         for key in keys {
             #expect(bundle.localizedString(forKey: key, value: nil, table: nil) != key)
