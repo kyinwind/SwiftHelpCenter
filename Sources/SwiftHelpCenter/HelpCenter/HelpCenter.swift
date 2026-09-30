@@ -408,8 +408,10 @@ public struct SHCHelpCenterConfiguration {
     public var remoteFAQURL: URL?
     public var trainingVideos: SHCTrainingVideoConfiguration?
     public var includeDefaultQuickLinks: Bool
-    public var accentColor: Color
-    public var unreadColor: Color
+    // nil = 不锁定，实时跟随 EDSTheme 主题（宿主 App 换色系后自动生效）。
+    // 显式传值 = 锁定为固定颜色，不再跟随主题。
+    public var accentColor: Color?
+    public var unreadColor: Color?
     public var defaults: UserDefaults
 
     public init(
@@ -422,8 +424,8 @@ public struct SHCHelpCenterConfiguration {
         remoteFAQURL: URL? = nil,
         trainingVideos: SHCTrainingVideoConfiguration? = nil,
         includeDefaultQuickLinks: Bool = true,
-        accentColor: Color = EDSTheme.shared.colors.accent,
-        unreadColor: Color = EDSTheme.shared.colors.danger,
+        accentColor: Color? = nil,
+        unreadColor: Color? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.versionHistory = versionHistory
@@ -456,8 +458,15 @@ public final class SHCHelpCenterManager {
     public private(set) var readAnnouncementIDs: Set<String> = []
     public private(set) var supportURL: URL?
     public private(set) var appleID: String = ""
-    public private(set) var accentColor: Color = EDSTheme.shared.colors.accent
-    public private(set) var unreadColor: Color = EDSTheme.shared.colors.danger
+    // 颜色锁定值：configure 显式传入时生效；nil = 实时跟随 EDSTheme 主题。
+    private var accentColorOverride: Color?
+    private var unreadColorOverride: Color?
+
+    /// 主色调。未在 configure 里显式传入时实时读取 EDSTheme 主题，
+    /// 宿主 App 切换色系后，重新打开帮助中心即为新色。
+    public var accentColor: Color { accentColorOverride ?? EDSTheme.shared.colors.accent }
+    /// 未读点颜色。规则同 accentColor。
+    public var unreadColor: Color { unreadColorOverride ?? EDSTheme.shared.colors.danger }
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
     public private(set) var isCheckingAppStoreUpdate = false
     public private(set) var isLoadingRemoteAnnouncements = false
@@ -513,8 +522,8 @@ public final class SHCHelpCenterManager {
         self.didFetchRemoteFAQItems = false
         self.supportURL = configuration.supportURL
         self.appleID = configuration.appleID
-        self.accentColor = configuration.accentColor
-        self.unreadColor = configuration.unreadColor
+        self.accentColorOverride = configuration.accentColor
+        self.unreadColorOverride = configuration.unreadColor
         self.defaults = configuration.defaults
         self.isConfigured = true
         self.readAnnouncementIDs = Set(configuration.defaults.stringArray(forKey: resolvedAnnouncementStorageKey) ?? [])
