@@ -236,7 +236,7 @@ public struct ReviewPromptView: View {
         VStack(spacing: 18) {
             Image(systemName: "star.bubble.fill")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(EDSTheme.shared.colors.accent)
+                .foregroundStyle(EDSTheme.shared.colors.primary)
                 .frame(width: 64, height: 64)
                 .background(
                     Circle()

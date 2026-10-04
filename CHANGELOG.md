@@ -2,7 +2,7 @@
 
 本文件记录 SwiftHelpCenter 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.2.2] - 2029-10-04
 
 ### Changed
 
@@ -10,6 +10,7 @@
 - `SHCHelpCenterConfiguration.accentColor / unreadColor` 类型由 `Color` 改为 `Color?`，默认 `nil`：
   - `nil`（默认）＝ 实时跟随 EDSTheme 主题（accent / danger）；
   - 显式传值 ＝ 锁定为固定颜色，不跟随主题。
+- EasyDesignSystem upgrade to 0.5.0
 - 兼容性：已有调用方显式传 `.blue` 等固定色不受影响（Swift 自动提升为 Optional）；此前依赖「默认值取 configure 时刻主题色」的调用方，行为变为持续跟随主题，属预期修正。
 
 ## [0.2.1] - 2026-09

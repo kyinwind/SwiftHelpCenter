@@ -442,7 +442,7 @@ public struct FeedbackView: View {
         HStack(alignment: .top, spacing: EDSTheme.shared.spacing.md) {
             Image(systemName: "bubble.left.and.text.bubble.right.fill")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(EDSTheme.shared.colors.accent)
+                .foregroundStyle(EDSTheme.shared.colors.primary)
                 .frame(width: 48, height: 48)
                 .background(
                     RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)

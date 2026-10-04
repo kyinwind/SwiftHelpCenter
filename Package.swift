@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/kyinwind/EasyDesignSystem.git",
-            .upToNextMajor(from: "0.2.0")
+            .upToNextMajor(from: "0.5.0")
         )
     ],
     targets: [

@@ -464,7 +464,7 @@ public final class SHCHelpCenterManager {
 
     /// 主色调。未在 configure 里显式传入时实时读取 EDSTheme 主题，
     /// 宿主 App 切换色系后，重新打开帮助中心即为新色。
-    public var accentColor: Color { accentColorOverride ?? EDSTheme.shared.colors.accent }
+    public var accentColor: Color { accentColorOverride ?? EDSTheme.shared.colors.primary }
     /// 未读点颜色。规则同 accentColor。
     public var unreadColor: Color { unreadColorOverride ?? EDSTheme.shared.colors.danger }
     public private(set) var appStoreVersionInfo: SHCAppStoreVersionInfo?
@@ -1742,7 +1742,7 @@ private struct SHCAnnouncementRow: View {
     private var levelColor: Color {
         switch item.level {
         case .info:
-            return EDSTheme.shared.colors.accent
+            return EDSTheme.shared.colors.primary
         case .success:
             return EDSTheme.shared.colors.success
         case .warning:
@@ -1827,7 +1827,7 @@ private struct SHCAnnouncementSummaryRow: View {
     private var levelColor: Color {
         switch item.level {
         case .info:
-            return EDSTheme.shared.colors.accent
+            return EDSTheme.shared.colors.primary
         case .success:
             return EDSTheme.shared.colors.success
         case .warning:
