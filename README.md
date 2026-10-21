@@ -42,7 +42,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.6`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.6` 时请在提交后创建并推送 `0.2.6` tag。
+版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.4`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.4` 时请在提交后创建并推送 `0.2.4` tag。
 
 ---
 
@@ -170,7 +170,7 @@ SHCAnnouncementItem(
 )
 ```
 
-公告会显示在帮助中心顶部、快速入口之前。入口红点会同时响应未读公告和未读版本更新。
+公告会显示在帮助中心顶部、快速入口之前。入口红点会同时响应未读公告、未读版本更新和 App Store 可升级版本。
 
 远程公告 JSON 支持放在 GitHub Raw、自己的网站或任意可访问的 HTTPS 地址：
 

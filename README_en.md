@@ -43,7 +43,7 @@ In Xcode, add this Swift Package URL:
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-Choose **Up to Next Major Version** and set the starting version to `0.2.6`. Swift Package versions are resolved from Git tags, so publish `0.2.6` by creating and pushing the `0.2.6` tag after committing the release changes.
+Choose **Up to Next Major Version** and set the starting version to `0.2.4`. Swift Package versions are resolved from Git tags, so publish `0.2.4` by creating and pushing the `0.2.4` tag after committing the release changes.
 
 ---
 
@@ -172,7 +172,7 @@ SHCAnnouncementItem(
 )
 ```
 
-Announcements appear near the top of the help center, before quick links. The unread dot responds to both unread announcements and unread version updates.
+Announcements appear near the top of the help center, before quick links. The entry indicator responds to unread announcements, unread version updates, and newer App Store versions.
 
 Remote announcement JSON can be hosted on GitHub Raw, your website, or any reachable HTTPS endpoint:
 

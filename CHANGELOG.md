@@ -1,6 +1,13 @@
 # Changelog
 
 本文件记录 SwiftHelpCenter 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
+
+## [0.2.4] - 2026-10-22
+
+### Fixed
+
+- App Store 存在高于当前 App 的版本时，帮助中心按钮和导航入口现在会显示小红点提醒；未读公告与未读版本历史的现有提醒行为保持不变。
+
 ## [0.2.3] - 2029-10-04
 
 ### Changed

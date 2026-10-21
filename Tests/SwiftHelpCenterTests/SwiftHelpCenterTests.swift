@@ -232,6 +232,26 @@ func appVersionComparison() {
     #expect(SHCHelpCenterManager.isVersion("1.8.0", newerThan: "1.8.1") == false)
 }
 
+@Test("HelpCenter entry indicator covers unread content and App Store updates")
+func helpCenterEntryIndicator() {
+    #expect(SHCHelpCenterManager.shouldShowEntryIndicator(
+        hasUnreadContent: false,
+        hasAppStoreUpdateAvailable: false
+    ) == false)
+    #expect(SHCHelpCenterManager.shouldShowEntryIndicator(
+        hasUnreadContent: true,
+        hasAppStoreUpdateAvailable: false
+    ) == true)
+    #expect(SHCHelpCenterManager.shouldShowEntryIndicator(
+        hasUnreadContent: false,
+        hasAppStoreUpdateAvailable: true
+    ) == true)
+    #expect(SHCHelpCenterManager.shouldShowEntryIndicator(
+        hasUnreadContent: true,
+        hasAppStoreUpdateAvailable: true
+    ) == true)
+}
+
 @Test("AppStoreHelper parses lookup version info")
 func appStoreLookupParsing() throws {
     let json = """

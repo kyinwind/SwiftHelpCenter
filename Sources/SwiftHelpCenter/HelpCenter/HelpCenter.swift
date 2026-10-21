@@ -563,6 +563,17 @@ public final class SHCHelpCenterManager {
         hasUnreadUpdates || hasUnreadAnnouncements
     }
 
+    /// Whether the help center entry should draw the user's attention.
+    ///
+    /// App Store updates remain separate from unread content so actions such as
+    /// `markAllAsRead()` continue to affect announcements and version history only.
+    public var hasPendingAttention: Bool {
+        Self.shouldShowEntryIndicator(
+            hasUnreadContent: hasUnreadContent,
+            hasAppStoreUpdateAvailable: hasAppStoreUpdateAvailable
+        )
+    }
+
     public var hasAppStoreUpdateAvailable: Bool {
         guard let appStoreVersionInfo else { return false }
         return Self.isVersion(
@@ -617,6 +628,13 @@ public final class SHCHelpCenterManager {
 
     public nonisolated static func isVersion(_ candidate: String, newerThan current: String) -> Bool {
         compareVersions(candidate, current) == .orderedDescending
+    }
+
+    nonisolated static func shouldShowEntryIndicator(
+        hasUnreadContent: Bool,
+        hasAppStoreUpdateAvailable: Bool
+    ) -> Bool {
+        hasUnreadContent || hasAppStoreUpdateAvailable
     }
 
     public func isUnread(_ item: SHCVersionHistoryItem) -> Bool {
@@ -1110,7 +1128,7 @@ public struct SHCHelpButton: View {
             )
             .contentShape(Capsule(style: .continuous))
             .overlay(alignment: .topTrailing) {
-                if manager.hasUnreadContent {
+                if manager.hasPendingAttention {
                     SHCUnreadDot(color: manager.unreadColor, size: size.dotSize)
                         .offset(x: -5, y: 5)
                 }
@@ -1194,7 +1212,7 @@ public struct SHCHelpNavigationLink: View {
                 .foregroundStyle(iconColor)
                 .frame(width: iconSize, height: iconSize)
                 .overlay(alignment: .topTrailing) {
-                    if manager.hasUnreadContent {
+                    if manager.hasPendingAttention {
                         SHCUnreadDot(color: manager.unreadColor, size: dotSize)
                             .offset(x: -5, y: 5)
                     }
