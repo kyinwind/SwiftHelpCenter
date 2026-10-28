@@ -42,7 +42,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.4`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.4` 时请在提交后创建并推送 `0.2.4` tag。
+版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.5`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.5` 时请在提交后创建并推送 `0.2.5` tag。
 
 ---
 

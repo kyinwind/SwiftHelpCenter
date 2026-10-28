@@ -183,17 +183,7 @@ struct SHCTrainingVideosSection: View {
                 ) {
                     HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
                         if !expanded {
-                            Image(systemName: "play.rectangle")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(accentColor)
-                                .frame(width: 34, height: 34)
-                                .background(
-                                    RoundedRectangle(
-                                        cornerRadius: EDSTheme.shared.radius.sm,
-                                        style: .continuous
-                                    )
-                                    .fill(accentColor.opacity(0.12))
-                                )
+                            SHCIconTile(systemImage: "play.rectangle", tint: accentColor)
                                 .accessibilityHidden(true)
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         }

@@ -67,8 +67,7 @@ private enum SHCHelpCenterPreviewData {
                 .init(id: "workflow", title: "进阶工作流 / Advanced workflows", url: URL(string: "https://example.com/workflow")!),
                 .init(id: "tips", title: "实用技巧 / Tips and tricks", url: URL(string: "https://example.com/tips")!),
                 .init(id: "long", title: "如何从零开始完成一次完整的操作流程 — A complete walkthrough from start to finish", url: URL(string: "https://example.com/full")!)
-            ]),
-            unreadColor: .blue
+            ])
         ))
     }
 

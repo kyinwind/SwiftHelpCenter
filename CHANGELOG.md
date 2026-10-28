@@ -2,6 +2,20 @@
 
 本文件记录 SwiftHelpCenter 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.2.5] - 2026-10-29
+
+### Fixed
+
+- **统一帮助中心前置图标的尺寸与色源**：快捷入口图标由 42×42 / 19pt 改为 34×34 / 17pt，与公告、培训视频、版本历史折叠行保持一致；卡片最小高度由 84 调整为 76。所有带底块的图标改为复用新增的 `SHCIconTile`，尺寸只有 `.row`（34×34 / 17pt）和 `.header`（44×44 / 22pt）两档，底块透明度统一为 12%。
+- **修复 `.info` 级公告图标颜色与其它图标不一致**：原先 `.info` 级公告写死读取 `EDSTheme.shared.colors.primary`，宿主传入自定义 `accentColor` 时会与快捷入口等图标不同色。现在改为跟随宿主强调色；`success` / `warning` / `critical` 仍使用 EDS 语义色 `success` / `warning` / `danger`，严重级别保持视觉可辨认。
+- 公告级别色映射收敛为 `SHCAnnouncementLevel.tintColor(accent:)` 单一实现，删除 `SHCAnnouncementRow` 与 `SHCAnnouncementSummaryRow` 中重复的 `switch` 分支。
+- 修正 `SHCHelpCenterPreview` 的样例配置：移除只覆盖 `unreadColor` 造成的「图标用 EDS 主题蓝、未读标记用系统蓝」双色源问题，预览现在完整跟随 EDS 主题。
+
+### Compatibility
+
+- 无公开 API 变更，宿主 App 无需修改代码。
+- 依赖自定义 `accentColor` 且原本期望 `.info` 公告为 EDS primary 色的宿主，颜色将变为宿主强调色，属预期修正。
+
 ## [0.2.4] - 2026-10-22
 
 ### Fixed

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftUI
 @testable import SwiftHelpCenter
 
 // MARK: - HelpCenter: SHCHelpVideoLink
@@ -516,4 +517,46 @@ func SHCDefaultsToolsCodable() {
 
     // Clean up
     SHCDefaultsTools.shared.remove(forStringKey: key)
+}
+
+// MARK: - 公告级别色：颜色来源统一
+
+@Test("公告图标色：info 跟随宿主强调色")
+func announcementTintInfoFollowsAccent() {
+    let accent = Color.blue
+    #expect(SHCAnnouncementLevel.info.tintColor(accent: accent) == accent)
+}
+
+@Test("公告图标色：success/warning/critical 使用 EDS 语义色且互不相同")
+func announcementTintKeepsSemanticColors() {
+    let accent = Color.blue
+    let success = SHCAnnouncementLevel.success.tintColor(accent: accent)
+    let warning = SHCAnnouncementLevel.warning.tintColor(accent: accent)
+    let critical = SHCAnnouncementLevel.critical.tintColor(accent: accent)
+
+    #expect(success != accent)
+    #expect(warning != accent)
+    #expect(critical != accent)
+    #expect(success != warning)
+    #expect(warning != critical)
+    #expect(success != critical)
+}
+
+@Test("公告图标色：info 与其余级别不同色")
+func announcementTintInfoDiffersFromSemantic() {
+    let accent = Color.blue
+    let info = SHCAnnouncementLevel.info.tintColor(accent: accent)
+
+    #expect(info != SHCAnnouncementLevel.success.tintColor(accent: accent))
+    #expect(info != SHCAnnouncementLevel.warning.tintColor(accent: accent))
+    #expect(info != SHCAnnouncementLevel.critical.tintColor(accent: accent))
+}
+
+@Test("图标块尺寸：row 与 header 两档固定值")
+func iconTileSizeTokens() {
+    #expect(SHCIconTile.Size.row.container == 34)
+    #expect(SHCIconTile.Size.row.iconFontSize == 17)
+    #expect(SHCIconTile.Size.header.container == 44)
+    #expect(SHCIconTile.Size.header.iconFontSize == 22)
+    #expect(SHCIconTile.backgroundOpacity == 0.12)
 }

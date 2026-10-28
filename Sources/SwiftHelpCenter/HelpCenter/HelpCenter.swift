@@ -219,6 +219,22 @@ public enum SHCAnnouncementLevel: String, Codable, Hashable, Sendable {
         case .critical: return SwiftHelpCenterL10n.helpCenterAnnouncementLevelCritical
         }
     }
+
+    /// 公告图标、级别徽章和详情按钮的统一色源。
+    ///
+    /// - `.info` 跟随宿主强调色，保证与快捷入口、培训视频、版本历史等图标的颜色一致；
+    /// - 其余级别保留 EDS 语义色，让告警与严重级别在视觉上可辨认。
+    ///
+    /// 所有色值最终都来自 `EDSTheme.shared.colors` 色板或宿主传入的 `accent`，
+    /// 不要在视图里另写颜色分支。
+    func tintColor(accent: Color) -> Color {
+        switch self {
+        case .info: return accent
+        case .success: return EDSTheme.shared.colors.success
+        case .warning: return EDSTheme.shared.colors.warning
+        case .critical: return EDSTheme.shared.colors.danger
+        }
+    }
 }
 
 /// 帮助中心公告。适合展示维护通知、已知问题、新教程、活动提醒等开发者主动沟通内容。
@@ -1285,6 +1301,7 @@ public struct SHCVersionHistoryListView: View {
                             SHCAnnouncementRow(
                                 item: item,
                                 isUnread: manager.isUnread(item),
+                                accentColor: manager.accentColor,
                                 unreadColor: manager.unreadColor,
                                 markAsRead: {
                                     manager.markAsRead(item)
@@ -1296,6 +1313,7 @@ public struct SHCVersionHistoryListView: View {
                     SHCAnnouncementSummaryRow(
                         item: featured,
                         isUnread: manager.isUnread(featured),
+                        accentColor: manager.accentColor,
                         unreadColor: manager.unreadColor,
                         summaryText: announcementSummaryText(from: announcements),
                         expand: {
@@ -1495,14 +1513,11 @@ public struct SHCVersionHistoryListView: View {
 
     private var headerTitle: some View {
         HStack(alignment: .top, spacing: EDSTheme.shared.spacing.md) {
-            Image(systemName: "questionmark.bubble.fill")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(manager.accentColor)
-                .frame(width: 44, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
-                        .fill(manager.accentColor.opacity(0.12))
-                )
+            SHCIconTile(
+                systemImage: "questionmark.bubble.fill",
+                tint: manager.accentColor,
+                size: .header
+            )
 
             VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                 EDSSectionTitle(title: displayTitle, subtitle: displaySubtitle)
@@ -1589,14 +1604,7 @@ private struct SHCHelpQuickLinkButton: View {
     var body: some View {
         Button(action: performAction) {
             HStack(alignment: .center, spacing: EDSTheme.shared.spacing.sm) {
-                Image(systemName: link.systemImage)
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(manager.accentColor)
-                    .frame(width: 42, height: 42)
-                    .background(
-                        RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
-                            .fill(manager.accentColor.opacity(0.12))
-                    )
+                SHCIconTile(systemImage: link.systemImage, tint: manager.accentColor)
 
                 VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                     Text(displayTitle)
@@ -1622,7 +1630,7 @@ private struct SHCHelpQuickLinkButton: View {
                     .foregroundStyle(EDSTheme.shared.colors.textTertiary)
             }
             .padding(EDSTheme.shared.spacing.md)
-            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                     .fill(EDSTheme.shared.colors.cardGrayBackground)
@@ -1678,6 +1686,7 @@ private struct SHCAnnouncementRow: View {
 
     let item: SHCAnnouncementItem
     let isUnread: Bool
+    let accentColor: Color
     let unreadColor: Color
     let markAsRead: () -> Void
 
@@ -1691,14 +1700,10 @@ private struct SHCAnnouncementRow: View {
                     markAsRead()
                 } label: {
                     HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
-                        Image(systemName: item.level.systemImage)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(levelColor)
-                            .frame(width: 34, height: 34)
-                            .background(
-                                RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
-                                    .fill(levelColor.opacity(0.12))
-                            )
+                        SHCIconTile(
+                            systemImage: item.level.systemImage,
+                            tint: levelColor
+                        )
 
                         VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                             HStack(alignment: .firstTextBaseline, spacing: EDSTheme.shared.spacing.xs) {
@@ -1758,22 +1763,14 @@ private struct SHCAnnouncementRow: View {
     }
 
     private var levelColor: Color {
-        switch item.level {
-        case .info:
-            return EDSTheme.shared.colors.primary
-        case .success:
-            return EDSTheme.shared.colors.success
-        case .warning:
-            return EDSTheme.shared.colors.warning
-        case .critical:
-            return EDSTheme.shared.colors.danger
-        }
+        item.level.tintColor(accent: accentColor)
     }
 }
 
 private struct SHCAnnouncementSummaryRow: View {
     let item: SHCAnnouncementItem
     let isUnread: Bool
+    let accentColor: Color
     let unreadColor: Color
     let summaryText: String
     let expand: () -> Void
@@ -1782,14 +1779,10 @@ private struct SHCAnnouncementSummaryRow: View {
         EDSGroup(padding: EDSTheme.shared.spacing.md, showsBorder: isUnread) {
             Button(action: expand) {
                 HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
-                    Image(systemName: item.level.systemImage)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(levelColor)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
-                                .fill(levelColor.opacity(0.12))
-                        )
+                    SHCIconTile(
+                        systemImage: item.level.systemImage,
+                        tint: levelColor
+                    )
 
                     VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                         HStack(alignment: .center, spacing: EDSTheme.shared.spacing.xs) {
@@ -1843,16 +1836,7 @@ private struct SHCAnnouncementSummaryRow: View {
     }
 
     private var levelColor: Color {
-        switch item.level {
-        case .info:
-            return EDSTheme.shared.colors.primary
-        case .success:
-            return EDSTheme.shared.colors.success
-        case .warning:
-            return EDSTheme.shared.colors.warning
-        case .critical:
-            return EDSTheme.shared.colors.danger
-        }
+        item.level.tintColor(accent: accentColor)
     }
 }
 
@@ -2029,14 +2013,7 @@ private struct SHCVersionHistorySummaryRow: View {
         EDSGroup(showsBorder: isUnread) {
             Button(action: expand) {
                 HStack(alignment: .top, spacing: EDSTheme.shared.spacing.sm) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(accentColor)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
-                                .fill(accentColor.opacity(0.12))
-                        )
+                    SHCIconTile(systemImage: "clock.arrow.circlepath", tint: accentColor)
 
                     VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
                         HStack(alignment: .center, spacing: EDSTheme.shared.spacing.xs) {
@@ -2128,6 +2105,62 @@ private struct SHCUnreadBadge: View {
             .background(
                 Capsule(style: .continuous)
                     .fill(color.opacity(0.12))
+            )
+    }
+}
+
+// MARK: - Unified Icon Tile
+
+/// 帮助中心统一的前置图标块：图标 + 12% 透明度的同色底块。
+///
+/// 所有「带底块的图标」都必须走这里，避免尺寸与色源各自为政：
+/// - 尺寸只有 `.row` 与 `.header` 两档；
+/// - 颜色只接受调用方传入的 `tint`，且 `tint` 只应来自
+///   `SHCHelpCenterManager.accentColor` 或 `SHCAnnouncementLevel.tintColor(accent:)`。
+struct SHCIconTile: View {
+    enum Size {
+        /// 列表行、卡片正文：34×34 容器 / 17pt 图标，与 EDS `controlSize.buttonHeight` 同值。
+        case row
+        /// 页面头部标题：44×44 容器 / 22pt 图标。
+        case header
+
+        var container: CGFloat {
+            switch self {
+            case .row: return 34
+            case .header: return 44
+            }
+        }
+
+        var iconFontSize: CGFloat {
+            switch self {
+            case .row: return 17
+            case .header: return 22
+            }
+        }
+
+        var cornerRadius: CGFloat {
+            switch self {
+            case .row: return EDSTheme.shared.radius.sm
+            case .header: return EDSTheme.shared.radius.md
+            }
+        }
+    }
+
+    /// 底块透明度，所有图标共用同一数值。
+    static let backgroundOpacity: Double = 0.12
+
+    let systemImage: String
+    let tint: Color
+    var size: Size = .row
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: size.iconFontSize, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: size.container, height: size.container)
+            .background(
+                RoundedRectangle(cornerRadius: size.cornerRadius, style: .continuous)
+                    .fill(tint.opacity(Self.backgroundOpacity))
             )
     }
 }
