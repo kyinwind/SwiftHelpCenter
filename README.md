@@ -27,7 +27,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 | 模块 | 说明 |
 |------|------|
 | **HelpCenter** | 公告 + 版本历史 + 快速入口 + FAQ + 视频链接，一键窗口展示 |
-| **FeedbackManager** | 多通道反馈系统（Discord / 钉钉 / 邮件），支持截图上传（macOS） |
+| **FeedbackManager** | 多通道反馈系统（QQ 群 / 钉钉 / 邮件） |
 | **Localization** | 用户可手动切换语言的国际化框架（zh-Hans / English） |
 | **ReviewPromptManager** | 基于使用次数和天数的双阈值评分弹窗 |
 | **EasyDesignSystem** | 独立 Swift Package，提供 Design Token 与通用组件 |
@@ -42,7 +42,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.5`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.5` 时请在提交后创建并推送 `0.2.5` tag。
+版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.6`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.6` 时请在提交后创建并推送 `0.2.6` tag。
 
 ---
 
@@ -55,6 +55,7 @@ https://github.com/kyinwind/SwiftHelpCenter
 **1. 配置数据**
 
 ```swift
+import SwiftUI
 import SwiftHelpCenter
 
 // 在 App 初始化时配置
@@ -343,7 +344,7 @@ SHCHelpCenterPreview()  // 带预览数据的帮助中心
 
 ## 2. 用户反馈 (FeedbackManager)
 
-支持 Discord Webhook、钉钉机器人、邮件三个通道，附带系统信息收集和截图上传（macOS）。
+支持 QQ 交流群、钉钉机器人和邮件三个入口。QQ 群用于持续交流，邮件和钉钉用于发送反馈，并可附带系统信息。
 
 ### 配置
 
@@ -354,17 +355,21 @@ FeedbackManager.shared.configure(
     appleID: "1234567890",              // Mac App Store 应用 ID
     supportURL: "https://example.com/support",
     email: "feedback@example.com",       // 邮件接收地址（必填）
-    discordWebhook: "https://discord.com/api/webhooks/...",   // 可选
+    qqGroupNumber: "123456789",          // QQ 群号（必填）
+    qqGroupDescription: "欢迎加入 QQ 群反馈问题并交流 App 使用经验。", // 必填
+    qqGroupQRCodeImage: Image("QQGroupQRCode"), // 可选
     dingTalkWebhook: "https://oapi.dingtalk.com/robot/send?access_token=..."  // 可选
 )
 ```
 
-> `email` 为必填，`discordWebhook` 和 `dingTalkWebhook` 可选。不传的渠道不会在 UI 中显示。
+> `email`、`qqGroupNumber` 和 `qqGroupDescription` 为必填。二维码和钉钉 Webhook 可选；未传二维码时页面只显示群号和说明。宿主 App 应根据当前界面语言传入对应语言的 `qqGroupDescription`。
+
+旧版 `discordWebhook` API 在 `0.2.6` 中保留以兼容已有调用，但已标记为 deprecated，Discord 不再显示在内置反馈界面中。
 
 ### 渠道选项
 
 ```swift
-FeedbackChannel.discord   // Discord Webhook（macOS 支持截图上传）
+FeedbackChannel.qqGroup  // QQ 交流群信息页
 FeedbackChannel.dingTalk  // 钉钉机器人
 FeedbackChannel.mail      // 邮件（打开系统邮件客户端）
 ```
@@ -374,10 +379,9 @@ FeedbackChannel.mail      // 邮件（打开系统邮件客户端）
 ```swift
 let payload = FeedbackPayload(
     content: "反馈内容",
-    attachments: [],           // 附件 URL 列表
     includeSystemInfo: true,   // 是否附带系统信息
     systemInfo: SystemInfoProvider.collect(appName: "MyApp"),
-    channels: [.discord, .mail]
+    channels: [.mail]
 )
 
 try await FeedbackManager.shared.sendFeedback(payload)
@@ -386,7 +390,7 @@ try await FeedbackManager.shared.sendFeedback(payload)
 ### 使用内置 UI
 
 ```swift
-FeedbackView()  // 完整的反馈视图，支持渠道选择、截图上传（macOS）
+FeedbackView()  // 完整反馈视图，支持 QQ 群、邮件和钉钉入口
 ```
 
 ### 反馈窗口（macOS）

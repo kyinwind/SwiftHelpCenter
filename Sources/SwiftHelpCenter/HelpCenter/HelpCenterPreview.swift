@@ -45,6 +45,8 @@ private enum SHCHelpCenterPreviewData {
             appleID: "123456789",
             supportURL: "https://example.com/support",
             email: "feedback@example.com",
+            qqGroupNumber: "123456789",
+            qqGroupDescription: packageL("FeedbackView.qqGroup.previewDescription"),
             appName: "Preview App"
         )
 

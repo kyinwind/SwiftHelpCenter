@@ -28,7 +28,7 @@ tutorial videos, support links, feedback, and review prompts, SwiftHelpCenter gi
 | Module | Description |
 |--------|-------------|
 | **HelpCenter** | Announcements, version history, quick links, FAQ, video links — one window to show it all |
-| **FeedbackManager** | Multi-channel feedback (Discord / DingTalk / Email) with screenshot attachments (macOS) |
+| **FeedbackManager** | Multi-channel feedback through QQ Group, DingTalk, and Email |
 | **Localization** | Manual language switching framework (zh-Hans / English) with SwiftUI integration |
 | **ReviewPromptManager** | Dual-threshold review prompt based on click count and days of usage |
 | **EasyDesignSystem** | Separate Swift Package providing design tokens and reusable components |
@@ -43,7 +43,7 @@ In Xcode, add this Swift Package URL:
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-Choose **Up to Next Major Version** and set the starting version to `0.2.5`. Swift Package versions are resolved from Git tags, so publish `0.2.5` by creating and pushing the `0.2.5` tag after committing the release changes.
+Choose **Up to Next Major Version** and set the starting version to `0.2.6`. Swift Package versions are resolved from Git tags, so publish `0.2.6` by creating and pushing the `0.2.6` tag after committing the release changes.
 
 ---
 
@@ -57,6 +57,7 @@ management. Ideal for your app's menu bar Help button or Settings page entry.
 **1. Configure data**
 
 ```swift
+import SwiftUI
 import SwiftHelpCenter
 
 // Configure at app launch
@@ -344,8 +345,7 @@ SHCHelpCenterPreview()  // Standalone preview with sample data
 
 ## 2. FeedbackManager
 
-Multi-channel feedback system supporting Discord Webhook, DingTalk bot, and email,
-with system info collection and screenshot upload (macOS).
+Multi-channel feedback through a QQ discussion group, DingTalk bot, and email. The QQ group supports ongoing discussion, while email and DingTalk send feedback with optional system information.
 
 ### Configuration
 
@@ -356,17 +356,21 @@ FeedbackManager.shared.configure(
     appleID: "1234567890",              // Mac App Store app ID
     supportURL: "https://example.com/support",
     email: "feedback@example.com",       // Email recipient (required)
-    discordWebhook: "https://discord.com/api/webhooks/...",   // optional
+    qqGroupNumber: "123456789",          // QQ group number (required)
+    qqGroupDescription: "Join our QQ group to share feedback and usage tips.", // required
+    qqGroupQRCodeImage: Image("QQGroupQRCode"), // optional
     dingTalkWebhook: "https://oapi.dingtalk.com/robot/send?access_token=..."  // optional
 )
 ```
 
-> `email` is required. `discordWebhook` and `dingTalkWebhook` are optional. Channels without a URL will not appear in the UI.
+> `email`, `qqGroupNumber`, and `qqGroupDescription` are required. The QR code and DingTalk webhook are optional. The host app should provide a localized `qqGroupDescription` for the active interface language.
+
+The legacy `discordWebhook` API remains available in `0.2.6` for source compatibility, but is deprecated and Discord no longer appears in the built-in feedback UI.
 
 ### Available Channels
 
 ```swift
-FeedbackChannel.discord   // Discord Webhook (supports image uploads on macOS)
+FeedbackChannel.qqGroup  // QQ discussion group information
 FeedbackChannel.dingTalk  // DingTalk bot
 FeedbackChannel.mail      // Email (opens system mail client)
 ```
@@ -376,10 +380,9 @@ FeedbackChannel.mail      // Email (opens system mail client)
 ```swift
 let payload = FeedbackPayload(
     content: "Feedback content",
-    attachments: [],           // File URLs to attach
     includeSystemInfo: true,   // Include system info
     systemInfo: SystemInfoProvider.collect(appName: "MyApp"),
-    channels: [.discord, .mail]
+    channels: [.mail]
 )
 
 try await FeedbackManager.shared.sendFeedback(payload)
@@ -388,7 +391,7 @@ try await FeedbackManager.shared.sendFeedback(payload)
 ### Using the Built-in UI
 
 ```swift
-FeedbackView()  // Complete feedback view with channel picker and screenshot upload (macOS)
+FeedbackView()  // Complete feedback view with QQ Group, Email, and DingTalk entries
 ```
 
 ### Feedback Window (macOS)

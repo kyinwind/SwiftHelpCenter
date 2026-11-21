@@ -18,13 +18,53 @@ import EasyDesignSystem
 
 // MARK: - Configuration
 
+public struct FeedbackQQGroupConfiguration {
+    public let groupNumber: String
+    public let description: String
+    public let qrCodeImage: Image?
+
+    public init(
+        groupNumber: String,
+        description: String,
+        qrCodeImage: Image? = nil
+    ) {
+        self.groupNumber = groupNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.description = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.qrCodeImage = qrCodeImage
+    }
+
+    public var isValid: Bool {
+        !groupNumber.isEmpty && !description.isEmpty
+    }
+}
+
 public struct FeedbackConfiguration {
     public let appleID: String
     public let supportURL: String
     public let email: String
-    public let discordWebhook: String?
+    @available(*, deprecated, message: "Discord is hidden from the built-in UI. Configure a QQ group instead.")
+    public var discordWebhook: String? { configuredDiscordWebhook }
     public let dingTalkWebhook: String?
     public var appName: String?
+    public let qqGroup: FeedbackQQGroupConfiguration?
+    let configuredDiscordWebhook: String?
+
+    public init(
+        appleID: String,
+        supportURL: String,
+        email: String,
+        qqGroup: FeedbackQQGroupConfiguration,
+        dingTalkWebhook: String? = nil,
+        appName: String? = nil
+    ) {
+        self.appleID = appleID
+        self.supportURL = supportURL
+        self.email = email
+        self.configuredDiscordWebhook = nil
+        self.dingTalkWebhook = dingTalkWebhook
+        self.appName = appName
+        self.qqGroup = qqGroup
+    }
 
     /// - Parameters:
     ///   - appleID: Mac App Store 的应用 ID
@@ -33,6 +73,7 @@ public struct FeedbackConfiguration {
     ///   - discordWebhook: Discord Webhook URL（可选，不传则不显示 Discord 渠道）
     ///   - dingTalkWebhook: 钉钉机器人 Webhook URL（可选，不传则不显示钉钉渠道）
     ///   - appName: 应用名称（可选），用于系统信息收集
+    @available(*, deprecated, message: "Use init(appleID:supportURL:email:qqGroup:dingTalkWebhook:appName:) to configure a QQ group.")
     public init(
         appleID: String,
         supportURL: String,
@@ -44,22 +85,28 @@ public struct FeedbackConfiguration {
         self.appleID = appleID
         self.supportURL = supportURL
         self.email = email
-        self.discordWebhook = discordWebhook
+        self.configuredDiscordWebhook = discordWebhook
         self.dingTalkWebhook = dingTalkWebhook
         self.appName = appName
+        self.qqGroup = nil
     }
 }
 
 // MARK: - Channel & Payload
 
-public enum FeedbackChannel: String, Hashable, CaseIterable {
+public enum FeedbackChannel: String, Hashable, CaseIterable, Sendable {
+    @available(*, deprecated, message: "Discord is hidden from the built-in UI. Use qqGroup, mail, or dingTalk instead.")
     case discord
+    case qqGroup
     case dingTalk
     case mail
+
+    public static let allCases: [FeedbackChannel] = [.qqGroup, .dingTalk, .mail]
 
     public var displayName: String {
         switch self {
         case .discord: return packageL("FeedbackView.type.discord")
+        case .qqGroup: return packageL("FeedbackView.type.qqGroup")
         case .dingTalk: return packageL("FeedbackView.type.dingding")
         case .mail: return packageL("FeedbackView.type.mail")
         }
@@ -80,7 +127,7 @@ public struct FeedbackPayload {
         attachments: [URL] = [],
         includeSystemInfo: Bool = true,
         systemInfo: String? = nil,
-        channels: [FeedbackChannel] = [.discord]
+        channels: [FeedbackChannel] = [.mail]
     ) {
         self.content = content
         self.contact = contact
@@ -164,17 +211,9 @@ public final class FeedbackManager: ObservableObject {
     public static let shared = FeedbackManager()
     private init() {}
 
-    public private(set) var config: FeedbackConfiguration?
+    @Published public private(set) var config: FeedbackConfiguration?
 
-    /// 配置反馈管理器。必须在调用 sendFeedback 或使用 FeedbackView 之前调用。
-    ///
-    /// - Parameters:
-    ///   - appleID: Mac App Store 的应用 ID，用于「给应用评分」功能
-    ///   - supportURL: 技术支持页面的 URL
-    ///   - email: 接收反馈的邮箱地址
-    ///   - discordWebhook: Discord Webhook URL，不传则不显示 Discord 渠道
-    ///   - dingTalkWebhook: 钉钉机器人 Webhook URL，不传则不显示钉钉渠道
-    ///   - appName: 应用名称（可选），用于系统信息收集
+    /// 使用完整配置初始化反馈管理器。必须在调用 `sendFeedback` 或使用 `FeedbackView` 之前调用。
     public func configure(_ configuration: FeedbackConfiguration) {
         config = configuration
     }
@@ -185,9 +224,37 @@ public final class FeedbackManager: ObservableObject {
     ///   - appleID: Mac App Store / App Store 的应用 ID，用于「给应用评分」功能
     ///   - supportURL: 技术支持页面的 URL
     ///   - email: 接收反馈的邮箱地址
-    ///   - discordWebhook: Discord Webhook URL，不传则不显示 Discord 渠道
+    ///   - qqGroupNumber: QQ 群号，不能为空
+    ///   - qqGroupDescription: QQ 群说明文字，不能为空
+    ///   - qqGroupQRCodeImage: QQ 群二维码图片（可选）
     ///   - dingTalkWebhook: 钉钉机器人 Webhook URL，不传则不显示钉钉渠道
     ///   - appName: 应用名称（可选），用于系统信息收集
+    public func configure(
+        appleID: String,
+        supportURL: String,
+        email: String,
+        qqGroupNumber: String,
+        qqGroupDescription: String,
+        qqGroupQRCodeImage: Image? = nil,
+        dingTalkWebhook: String? = nil,
+        appName: String? = nil
+    ) {
+        configure(FeedbackConfiguration(
+            appleID: appleID,
+            supportURL: supportURL,
+            email: email,
+            qqGroup: FeedbackQQGroupConfiguration(
+                groupNumber: qqGroupNumber,
+                description: qqGroupDescription,
+                qrCodeImage: qqGroupQRCodeImage
+            ),
+            dingTalkWebhook: dingTalkWebhook,
+            appName: appName
+        ))
+    }
+
+    /// 兼容旧版 Discord 配置。Discord 不再显示在内置反馈界面中。
+    @available(*, deprecated, message: "Use configure(appleID:supportURL:email:qqGroupNumber:qqGroupDescription:qqGroupQRCodeImage:dingTalkWebhook:appName:).")
     public func configure(
         appleID: String,
         supportURL: String,
@@ -210,7 +277,16 @@ public final class FeedbackManager: ObservableObject {
 
     /// 当前可用的反馈渠道（根据配置自动过滤）
     public var availableChannels: [FeedbackChannel] {
-        webhooks.keys.sorted { $0.rawValue > $1.rawValue }
+        guard let config else { return [] }
+        var channels: [FeedbackChannel] = [.mail]
+        if let qqGroup = config.qqGroup, qqGroup.isValid {
+            channels.append(.qqGroup)
+        }
+        if let webhook = config.dingTalkWebhook,
+           !webhook.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            channels.append(.dingTalk)
+        }
+        return channels
     }
 
     @Published public var isSending: Bool = false
@@ -218,8 +294,10 @@ public final class FeedbackManager: ObservableObject {
     private var webhooks: [FeedbackChannel: String] {
         guard let config else { return [:] }
         var result: [FeedbackChannel: String] = [:]
-        if let url = config.discordWebhook, !url.isEmpty {
-            result[.discord] = url
+        if let url = config.configuredDiscordWebhook,
+           !url.isEmpty,
+           let discordChannel = FeedbackChannel(rawValue: "discord") {
+            result[discordChannel] = url
         }
         if let url = config.dingTalkWebhook, !url.isEmpty {
             result[.dingTalk] = url
@@ -240,12 +318,18 @@ public final class FeedbackManager: ObservableObject {
         var lastError: Error?
 
         for channel in feedback.channels {
+            if channel == .qqGroup {
+                lastError = FeedbackError.qqGroupIsInformational
+                continue
+            }
             guard let urlString = webhooks[channel], let url = URL(string: urlString) else { continue }
 
             do {
                 switch channel {
                 case .discord:
                     try await sendToDiscord(url: url, payload: feedback)
+                case .qqGroup:
+                    break
                 case .dingTalk:
                     try await sendToDingTalk(url: url, payload: feedback)
                 case .mail:
@@ -383,6 +467,7 @@ public enum FeedbackError: LocalizedError {
     case discordRequestFailed
     case discordUploadFailed(statusCode: Int, message: String)
     case dingTalkFailed
+    case qqGroupIsInformational
 
     public var errorDescription: String? {
         switch self {
@@ -398,6 +483,8 @@ public enum FeedbackError: LocalizedError {
             return "\(packageL("FeedbackManager.discordUploadFailed")): \(message)"
         case .dingTalkFailed:
             return packageL("FeedbackManager.dingTalkFailed")
+        case .qqGroupIsInformational:
+            return packageL("FeedbackManager.qqGroupIsInformational")
         }
     }
 }
@@ -428,7 +515,9 @@ public struct FeedbackView: View {
                 feedbackHeader
                 feedbackActions
                 feedbackForm
-                sendButton
+                if selectedChannel != .qqGroup {
+                    sendButton
+                }
             }
         }
         .alert(alertMessage, isPresented: $showAlert) {
@@ -436,6 +525,12 @@ public struct FeedbackView: View {
         }
         .environment(\.locale, languageManager.locale)
         .id(languageManager.refreshToken)
+        .onAppear {
+            normalizeSelectedChannel(manager.availableChannels)
+        }
+        .onChange(of: manager.availableChannels) { _, channels in
+            normalizeSelectedChannel(channels)
+        }
     }
 
     private var feedbackHeader: some View {
@@ -510,25 +605,16 @@ public struct FeedbackView: View {
                     .pickerStyle(.segmented)
                 }
 
-                SHCTextView(
-                    text: $content,
-                    placeholder: packageL("FeedbackView.input"),
-                    maxLength: 1700
-                )
-                .padding(EDSTheme.shared.spacing.sm)
-                .frame(height: 150)
-                .background(
-                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
-                        .fill(EDSTheme.shared.colors.pageBackground)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
-                        .stroke(EDSTheme.shared.colors.border, lineWidth: EDSTheme.shared.stroke.hairline)
-                )
-
-                TextField(packageL("FeedbackView.contactPlaceholder"), text: $contact)
-                    .textFieldStyle(.plain)
+                if selectedChannel == .qqGroup {
+                    qqGroupView
+                } else {
+                    SHCTextView(
+                        text: $content,
+                        placeholder: packageL("FeedbackView.input"),
+                        maxLength: 1700
+                    )
                     .padding(EDSTheme.shared.spacing.sm)
+                    .frame(height: 150)
                     .background(
                         RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                             .fill(EDSTheme.shared.colors.pageBackground)
@@ -537,32 +623,110 @@ public struct FeedbackView: View {
                         RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
                             .stroke(EDSTheme.shared.colors.border, lineWidth: EDSTheme.shared.stroke.hairline)
                     )
-                    .accessibilityLabel(packageL("FeedbackView.contact"))
 
-                Text(packageL(SwiftHelpCenterL10n.feedbackContactHint))
-                    .font(EDSTheme.shared.typography.caption)
+                    TextField(packageL("FeedbackView.contactPlaceholder"), text: $contact)
+                        .textFieldStyle(.plain)
+                        .padding(EDSTheme.shared.spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                                .fill(EDSTheme.shared.colors.pageBackground)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.md, style: .continuous)
+                                .stroke(EDSTheme.shared.colors.border, lineWidth: EDSTheme.shared.stroke.hairline)
+                        )
+                        .accessibilityLabel(packageL("FeedbackView.contact"))
+
+                    Text(packageL(SwiftHelpCenterL10n.feedbackContactHint))
+                        .font(EDSTheme.shared.typography.caption)
+                        .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Toggle(isOn: $includeSystemInfo) {
+                        Label(packageL("FeedbackView.sysinfo"), systemImage: "desktopcomputer")
+                    }
+
+                    if includeSystemInfo {
+                        Text(systemInfo)
+                            .font(EDSTheme.shared.typography.caption)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                            .padding(EDSTheme.shared.spacing.xs)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
+                                    .fill(EDSTheme.shared.colors.subtleFill)
+                            )
+                    }
+
+                    ScreenshotPickerView(selectedChannel: selectedChannel, attachmentURLs: $attachmentURLs)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var qqGroupView: some View {
+        if let qqGroup = manager.config?.qqGroup, qqGroup.isValid {
+            VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.md) {
+                Text(qqGroup.description)
+                    .font(EDSTheme.shared.typography.body)
                     .foregroundStyle(EDSTheme.shared.colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Toggle(isOn: $includeSystemInfo) {
-                    Label(packageL("FeedbackView.sysinfo"), systemImage: "desktopcomputer")
+                HStack(spacing: EDSTheme.shared.spacing.sm) {
+                    VStack(alignment: .leading, spacing: EDSTheme.shared.spacing.xxs) {
+                        Text(packageL("FeedbackView.qqGroup.number"))
+                            .font(EDSTheme.shared.typography.caption)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                        Text(qqGroup.groupNumber)
+                            .font(EDSTheme.shared.typography.bodyStrong)
+                            .foregroundStyle(EDSTheme.shared.colors.textPrimary)
+                            .textSelection(.enabled)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        copyQQGroupNumber(qqGroup.groupNumber)
+                    } label: {
+                        Label(packageL("FeedbackView.qqGroup.copy"), systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(EDSSecondaryButtonStyle())
                 }
 
-                if includeSystemInfo {
-                    Text(systemInfo)
-                        .font(EDSTheme.shared.typography.caption)
-                        .foregroundStyle(EDSTheme.shared.colors.textSecondary)
-                        .padding(EDSTheme.shared.spacing.xs)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: EDSTheme.shared.radius.sm, style: .continuous)
-                                .fill(EDSTheme.shared.colors.subtleFill)
-                        )
-                }
+                if let qrCodeImage = qqGroup.qrCodeImage {
+                    VStack(spacing: EDSTheme.shared.spacing.xs) {
+                        qrCodeImage
+                            .resizable()
+                            .interpolation(.none)
+                            .scaledToFit()
+                            .frame(maxWidth: 240, maxHeight: 240)
+                            .accessibilityLabel(packageL("FeedbackView.qqGroup.qrCode"))
 
-                ScreenshotPickerView(selectedChannel: selectedChannel, attachmentURLs: $attachmentURLs)
+                        Text(packageL("FeedbackView.qqGroup.scanHint"))
+                            .font(EDSTheme.shared.typography.caption)
+                            .foregroundStyle(EDSTheme.shared.colors.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
         }
+    }
+
+    private func copyQQGroupNumber(_ groupNumber: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(groupNumber, forType: .string)
+        #elseif os(iOS)
+        UIPasteboard.general.string = groupNumber
+        #endif
+        alertMessage = packageL("FeedbackView.qqGroup.copySuccess")
+        showAlert = true
+    }
+
+    private func normalizeSelectedChannel(_ channels: [FeedbackChannel]) {
+        guard !channels.contains(selectedChannel), let firstChannel = channels.first else { return }
+        selectedChannel = firstChannel
     }
 
     private var sendButton: some View {
@@ -803,7 +967,7 @@ struct ScreenshotPickerView: View {
     @State private var images: [NSImage] = []
 
     var body: some View {
-        if selectedChannel == .discord {
+        if selectedChannel.rawValue == "discord" {
             ScrollView(.horizontal) {
                 HStack {
                     addButton
@@ -892,7 +1056,9 @@ struct ScreenshotPickerView: View {
     FeedbackManager.shared.configure(
         appleID: "123456789",
         supportURL: "https://example.com/support",
-        email: "feedback@example.com"
+        email: "feedback@example.com",
+        qqGroupNumber: "123456789",
+        qqGroupDescription: "欢迎加入 QQ 群交流使用经验并反馈问题。"
     )
     return FeedbackView()
 }

@@ -472,6 +472,10 @@ func feedbackManagerConfigureInstance() {
         appleID: "6448427701",
         supportURL: "mailto:feedback@example.com",
         email: "feedback@example.com",
+        qqGroup: FeedbackQQGroupConfiguration(
+            groupNumber: " 123456789 ",
+            description: " Join the discussion. "
+        ),
         appName: "Test App"
     )
 
@@ -480,6 +484,73 @@ func feedbackManagerConfigureInstance() {
     #expect(FeedbackManager.shared.config?.appleID == "6448427701")
     #expect(FeedbackManager.shared.config?.email == "feedback@example.com")
     #expect(FeedbackManager.shared.config?.appName == "Test App")
+    #expect(FeedbackManager.shared.config?.qqGroup?.groupNumber == "123456789")
+    #expect(FeedbackManager.shared.config?.qqGroup?.description == "Join the discussion.")
+    #expect(FeedbackManager.shared.config?.qqGroup?.qrCodeImage == nil)
+    #expect(FeedbackManager.shared.availableChannels == [.mail, .qqGroup])
+}
+
+@MainActor
+@Test("FeedbackManager hides Discord and filters optional channels")
+func feedbackManagerVisibleChannels() {
+    FeedbackManager.shared.configure(
+        FeedbackConfiguration(
+            appleID: "6448427701",
+            supportURL: "https://example.com/support",
+            email: "feedback@example.com",
+            discordWebhook: "https://discord.com/api/webhooks/legacy",
+            dingTalkWebhook: "https://oapi.dingtalk.com/robot/send"
+        )
+    )
+
+    #expect(FeedbackManager.shared.availableChannels == [.mail, .dingTalk])
+    #expect(!FeedbackManager.shared.availableChannels.contains { $0.rawValue == "discord" })
+}
+
+@MainActor
+@Test("FeedbackManager omits invalid QQ group configuration")
+func feedbackManagerOmitsInvalidQQGroup() {
+    FeedbackManager.shared.configure(
+        FeedbackConfiguration(
+            appleID: "6448427701",
+            supportURL: "https://example.com/support",
+            email: "feedback@example.com",
+            qqGroup: FeedbackQQGroupConfiguration(
+                groupNumber: "  ",
+                description: "Required description"
+            )
+        )
+    )
+
+    #expect(FeedbackManager.shared.config?.qqGroup?.isValid == false)
+    #expect(FeedbackManager.shared.availableChannels == [.mail])
+}
+
+@MainActor
+@Test("QQ group is informational and cannot send programmatic feedback")
+func qqGroupDoesNotSendFeedback() async {
+    FeedbackManager.shared.configure(
+        FeedbackConfiguration(
+            appleID: "6448427701",
+            supportURL: "https://example.com/support",
+            email: "feedback@example.com",
+            qqGroup: FeedbackQQGroupConfiguration(
+                groupNumber: "123456789",
+                description: "Join the discussion"
+            )
+        )
+    )
+
+    do {
+        try await FeedbackManager.shared.sendFeedback(
+            FeedbackPayload(content: "Hello", channels: [.qqGroup])
+        )
+        Issue.record("Expected QQ group feedback to be rejected")
+    } catch FeedbackError.qqGroupIsInformational {
+        // Expected: QQ group is a navigation entry, not a delivery channel.
+    } catch {
+        Issue.record("Unexpected error: \(error)")
+    }
 }
 
 
@@ -495,6 +566,7 @@ func feedbackPayloadCombinesContentAndContact() {
     #expect(payload.combinedContent.contains("\(packageL(SwiftHelpCenterL10n.feedbackManagerContact)): user@example.com"))
     let anonymous = FeedbackPayload(content: "Anonymous", contact: "  \n", includeSystemInfo: false)
     #expect(anonymous.combinedContent == "Anonymous")
+    #expect(anonymous.channels == [.mail])
 }
 // MARK: - SHCDefaultsTools: Codable Support
 

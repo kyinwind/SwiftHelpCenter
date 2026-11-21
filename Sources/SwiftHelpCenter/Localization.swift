@@ -60,6 +60,7 @@ public enum SwiftHelpCenterL10n {
     public static let feedbackPickerTitle = "FeedbackView.pickerTitle"
     public static let feedbackTypeMail = "FeedbackView.type.mail"
     public static let feedbackTypeDiscord = "FeedbackView.type.discord"
+    public static let feedbackTypeQQGroup = "FeedbackView.type.qqGroup"
     public static let feedbackTypeDingTalk = "FeedbackView.type.dingding"
     public static let feedbackFollowUp = "FeedbackView.followup"
     public static let feedbackSysInfo = "FeedbackView.sysinfo"
@@ -70,6 +71,12 @@ public enum SwiftHelpCenterL10n {
     public static let feedbackSendSuccess = "FeedbackView.sendSuccess"
     public static let feedbackSendFail = "FeedbackView.sendFail"
     public static let feedbackOK = "FeedbackView.ok"
+    public static let feedbackQQGroupNumber = "FeedbackView.qqGroup.number"
+    public static let feedbackQQGroupCopy = "FeedbackView.qqGroup.copy"
+    public static let feedbackQQGroupCopySuccess = "FeedbackView.qqGroup.copySuccess"
+    public static let feedbackQQGroupQRCode = "FeedbackView.qqGroup.qrCode"
+    public static let feedbackQQGroupScanHint = "FeedbackView.qqGroup.scanHint"
+    public static let feedbackQQGroupPreviewDescription = "FeedbackView.qqGroup.previewDescription"
     public static let feedbackManagerSysInfo = "FeedbackManager.sysInfo"
     public static let feedbackManagerContact = "FeedbackManager.contact"
     public static let feedbackManagerNotConfigured = "FeedbackManager.notConfigured"
@@ -77,6 +84,7 @@ public enum SwiftHelpCenterL10n {
     public static let feedbackManagerDiscordRequestFailed = "FeedbackManager.discordRequestFailed"
     public static let feedbackManagerDiscordUploadFailed = "FeedbackManager.discordUploadFailed"
     public static let feedbackManagerDingTalkFailed = "FeedbackManager.dingTalkFailed"
+    public static let feedbackManagerQQGroupIsInformational = "FeedbackManager.qqGroupIsInformational"
 
     // MARK: - ReviewPromptManager
     public static let reviewPromptTitle = "ReviewPromptManager.title"

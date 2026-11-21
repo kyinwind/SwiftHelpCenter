@@ -129,9 +129,14 @@ func trainingVideoGeneration() async {
     #expect(!store.isLoading)
 }
 
-@Test("Training video and contact resources include both languages and valid count formatting")
+@Test("Training video, contact, and QQ group resources include both languages")
 func trainingVideoResources() throws {
     let keys = [SwiftHelpCenterL10n.feedbackContactPlaceholder, SwiftHelpCenterL10n.feedbackContactHint,
+                SwiftHelpCenterL10n.feedbackTypeQQGroup, SwiftHelpCenterL10n.feedbackQQGroupNumber,
+                SwiftHelpCenterL10n.feedbackQQGroupCopy, SwiftHelpCenterL10n.feedbackQQGroupCopySuccess,
+                SwiftHelpCenterL10n.feedbackQQGroupQRCode, SwiftHelpCenterL10n.feedbackQQGroupScanHint,
+                SwiftHelpCenterL10n.feedbackQQGroupPreviewDescription,
+                SwiftHelpCenterL10n.feedbackManagerQQGroupIsInformational,
                 SwiftHelpCenterL10n.helpCenterTrainingVideos, SwiftHelpCenterL10n.helpCenterViewAllTrainingVideos,
                 SwiftHelpCenterL10n.helpCenterCollapseTrainingVideos, SwiftHelpCenterL10n.helpCenterOpenTrainingVideoHint]
     for language in ["en", "zh-Hans"] {
