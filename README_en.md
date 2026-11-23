@@ -43,7 +43,7 @@ In Xcode, add this Swift Package URL:
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-Choose **Up to Next Major Version** and set the starting version to `0.2.6`. Swift Package versions are resolved from Git tags, so publish `0.2.6` by creating and pushing the `0.2.6` tag after committing the release changes.
+Choose **Up to Next Major Version** and set the starting version to `0.2.7`. Swift Package versions are resolved from Git tags, so publish `0.2.7` by creating and pushing the `0.2.7` tag after committing the release changes.
 
 ---
 
@@ -105,6 +105,19 @@ SHCHelpNavigationLink(title: "Help Center")
 SHCHelpCenterWindowPresenter.shared.show()
 SHCFeedbackWindowPresenter.shared.show()
 ```
+
+**4. Mount the must-read announcement prompt**
+
+If any announcement uses `mustRead: true`, mount the confirmation prompt on the root view. It forces all pending announcements after launch, records confirmation when the user taps "I Understand", and never prompts again automatically:
+
+```swift
+WindowGroup {
+    ContentView()
+        .SHCMustReadAnnouncementPrompt()
+}
+```
+
+Hosts that never use `mustRead` can skip this; behavior stays exactly as before.
 
 ### Data Models
 
@@ -174,6 +187,51 @@ SHCAnnouncementItem(
 ```
 
 Announcements appear near the top of the help center, before quick links. The entry indicator responds to unread announcements, unread version updates, and newer App Store versions.
+
+**Must-read announcements (`mustRead`)**
+
+By default announcements are opt-in content: users read them inside the help center if they want. Setting `mustRead: true` turns an announcement into a blocking confirmation after launch:
+
+- `mustRead: false` (default): unchanged, shown only in the help center.
+- `mustRead: true`: after launch, if unacknowledged and not expired, a formal confirmation dialog is presented; the user must tap "I Understand" to close it.
+- Once confirmed it never pops up again (across launches and upgrades) and is also marked as read; the announcement stays available in the help center.
+- Expired must-read announcements (`expiresAt` in the past) are skipped.
+- Multiple pending announcements are listed in a single dialog, sorted by pinned/publish date, and confirmed at once.
+- At most one automatic prompt per app launch; remote must-read announcements that arrive late wait for the next launch.
+- Reading an announcement inside the help center does not count as confirmation; it still prompts on the next launch until acknowledged.
+- The announcement `id` is the identity of the confirmation state, so changing `id` re-prompts as a new announcement.
+
+Local injection:
+
+```swift
+SHCAnnouncementItem(
+    id: "migration-2026-11",
+    title: "Data migration",
+    message: "Starting with this version, legacy data is migrated to the new format automatically.",
+    publishedAtString: "2026-11-23",
+    level: .critical,
+    mustRead: true
+)
+```
+
+Remote JSON supports `"mustRead": true` as well:
+
+```json
+[
+  {
+    "id": "migration-2026-11",
+    "title": "Data migration",
+    "message": "Starting with this version, legacy data is migrated to the new format automatically.",
+    "publishedAt": "2026-11-23",
+    "level": "critical",
+    "mustRead": true
+  }
+]
+```
+
+Remote announcements override local entries by `id`: an explicit remote `mustRead` wins; when the field is absent, the local value for the same `id` is inherited so a stale remote file cannot silently clear a local must-read flag. An explicit `"mustRead": false` disables it. If the remote fetch fails, nothing is prompted this launch and the next successful fetch handles it.
+
+Confirmation state is stored under `<storageKey>.mustReadAcknowledged`, separate from the read state; `resetReadState()` clears both.
 
 Remote announcement JSON can be hosted on GitHub Raw, your website, or any reachable HTTPS endpoint:
 

@@ -47,6 +47,12 @@ public enum SwiftHelpCenterL10n {
     public static let helpCenterAnnouncementLevelWarning = "SHCHelpCenter.announcementLevel.warning"
     public static let helpCenterAnnouncementLevelCritical = "SHCHelpCenter.announcementLevel.critical"
 
+    public static let helpCenterMustReadTitle = "SHCHelpCenter.mustRead.title"
+    public static let helpCenterMustReadSubtitle = "SHCHelpCenter.mustRead.subtitle"
+    public static let helpCenterMustReadConfirm = "SHCHelpCenter.mustRead.confirm"
+    public static let helpCenterMustReadFooterHint = "SHCHelpCenter.mustRead.footerHint"
+    public static let helpCenterMustReadCount = "SHCHelpCenter.mustRead.count"
+
     public static let helpCenterTrainingVideos = "SHCHelpCenter.trainingVideos"
     public static let helpCenterViewAllTrainingVideos = "SHCHelpCenter.viewAllTrainingVideos"
     public static let helpCenterCollapseTrainingVideos = "SHCHelpCenter.collapseTrainingVideos"

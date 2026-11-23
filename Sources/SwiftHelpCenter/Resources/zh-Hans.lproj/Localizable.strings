@@ -28,6 +28,11 @@
 "SHCHelpCenter.announcementLevel.success" = "完成";
 "SHCHelpCenter.announcementLevel.warning" = "提醒";
 "SHCHelpCenter.announcementLevel.critical" = "重要";
+"SHCHelpCenter.mustRead.title" = "重要公告";
+"SHCHelpCenter.mustRead.subtitle" = "请阅读以下内容后确认";
+"SHCHelpCenter.mustRead.confirm" = "我已知晓";
+"SHCHelpCenter.mustRead.footerHint" = "确认后将不再重复提示，你仍可在帮助中心查看。";
+"SHCHelpCenter.mustRead.count" = "共 %d 条待确认";
 "FeedbackView.title" = "反馈意见";
 "FeedbackView.rate" = "给应用评分";
 "FeedbackView.techSupport" = "技术支持";

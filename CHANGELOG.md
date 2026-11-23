@@ -2,6 +2,46 @@
 
 本文件记录 SwiftHelpCenter 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.2.7] - 2026-11-23
+
+### Added
+
+- **公告新增 `mustRead` 必读标记**：`SHCAnnouncementItem` 增加 `mustRead` 字段（默认 `false`），本地 `configure` 注入和远程公告 JSON 都支持。
+- **启动后强制确认弹窗**：新增 `SHCMustReadAnnouncementView` 与 `.SHCMustReadAnnouncementPrompt()` 修饰符；用户必须点「我已知晓」才能关闭，确认后永久不再自动弹出，同时标记为已读，公告仍保留在帮助中心。
+- 多条待确认公告合并为一个弹窗，按置顶/发布时间列出，一次确认；已过期公告跳过；每次 App 启动最多自动弹一次。
+- `SHCHelpCenterManager` 新增 `pendingMustReadAnnouncements`、`acknowledgeMustReadAnnouncements(_:)`、`consumeMustReadPromptIfNeeded()`、`prepareMustReadPromptIfNeeded(timeout:)`。
+- 远程公告按 id 合并时，显式 `mustRead` 以远程为准，缺失则继承本地同 id 的值，避免远程旧文件误清本地强制标记；远程拉取失败时本次启动不弹，下次启动成功后再处理。
+- 新增中英文文案、预览样例，并在 `examples/announcements.sample.json` 增加 `mustRead` 示例。
+
+### Compatibility
+
+- 公开 API 只增不改：`mustRead` 有默认值，旧调用方无需修改代码。
+- 未挂载 `.SHCMustReadAnnouncementPrompt()` 或未使用 `mustRead` 的宿主行为完全不变。
+- 旧远程 JSON 缺少 `mustRead` 时按 `false` 处理，且不会清除本地同 id 的强制标记。
+- 确认状态保存在 `"<announcementStorageKey>.mustReadAcknowledged"`，`resetReadState()` 会一并清除。
+- 版本号升至 `0.2.7`（新增公开 API 与功能）。
+
+## [0.2.6] - 2026-11-22
+
+### Added
+
+- **新增 QQ 群反馈入口**：新增 `FeedbackQQGroupConfiguration`，承载 QQ 群号（必填）、说明文字（必填）和二维码图片（可选）；反馈页渠道选择器新增 QQ 群，展示群号、说明文字与二维码。中英文文案随包提供。
+- `FeedbackConfiguration` 与 `FeedbackManager.configure` 增加接受 QQ 群配置的新接口。
+
+### Changed
+
+- 反馈页不再显示 Discord 渠道；无论宿主是否仍传入 `discordWebhook`，渠道选择器只显示邮件、QQ 群和钉钉。
+- `FeedbackPayload` 的默认发送渠道由 Discord 调整为邮件。
+
+### Deprecated
+
+- `discordWebhook` 属性、旧初始化方法、旧 `configure` 方法、`FeedbackChannel.discord` 及 Discord 发送实现保留可用，但已标记 deprecated，并在弃用信息中指向 QQ 群或其他反馈渠道。
+
+### Compatibility
+
+- 仍传入 `discordWebhook` 的宿主可继续编译运行，但 Discord 不再出现在反馈页渠道选择器中。
+- 无数据库和持久化 key 变更，旧版本升级无需迁移。
+
 ## [0.2.5] - 2026-10-29
 
 ### Fixed

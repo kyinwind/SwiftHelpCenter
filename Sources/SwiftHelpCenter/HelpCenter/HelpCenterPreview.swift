@@ -25,6 +25,7 @@ public struct SHCHelpCenterPreview: View {
         .onAppear {
             configurePreviewData()
         }
+        .SHCMustReadAnnouncementPrompt(manager: manager)
     }
 
     private func configurePreviewData() {
@@ -75,6 +76,15 @@ private enum SHCHelpCenterPreviewData {
 
     private static var announcements: [SHCAnnouncementItem] {
         [
+            SHCAnnouncementItem(
+                id: "preview-must-read",
+                title: "Preview: Must Read Announcement",
+                message: "This announcement is shown as a blocking confirmation prompt after launch until the user taps “I Understand”. It stays available in the help center afterwards.",
+                publishedAt: Date(),
+                level: .critical,
+                isPinned: true,
+                mustRead: true
+            ),
             SHCAnnouncementItem(
                 id: "preview-announcement",
                 title: "Maintenance Notice",

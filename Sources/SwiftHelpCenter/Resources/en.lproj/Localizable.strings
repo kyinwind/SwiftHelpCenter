@@ -28,6 +28,11 @@
 "SHCHelpCenter.announcementLevel.success" = "Done";
 "SHCHelpCenter.announcementLevel.warning" = "Notice";
 "SHCHelpCenter.announcementLevel.critical" = "Important";
+"SHCHelpCenter.mustRead.title" = "Important Announcements";
+"SHCHelpCenter.mustRead.subtitle" = "Please review the following and confirm.";
+"SHCHelpCenter.mustRead.confirm" = "I Understand";
+"SHCHelpCenter.mustRead.footerHint" = "You won't be prompted again. You can still find it in Help Center.";
+"SHCHelpCenter.mustRead.count" = "%d pending";
 "FeedbackView.title" = "Feedback";
 "FeedbackView.rate" = "Rate App";
 "FeedbackView.techSupport" = "Technical Support";

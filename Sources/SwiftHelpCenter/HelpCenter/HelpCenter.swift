@@ -248,6 +248,8 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
     public var linkURL: URL?
     public var isPinned: Bool
     public var expiresAt: Date?
+    /// 是否必须由用户在启动后强制确认。`false` 时行为与普通公告一致。
+    public var mustRead: Bool
 
     public init(
         id: String,
@@ -258,7 +260,8 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
         linkTitle: String? = nil,
         linkURL: URL? = nil,
         isPinned: Bool = false,
-        expiresAt: Date? = nil
+        expiresAt: Date? = nil,
+        mustRead: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -269,6 +272,7 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
         self.linkURL = linkURL
         self.isPinned = isPinned
         self.expiresAt = expiresAt
+        self.mustRead = mustRead
     }
 
     public init?(
@@ -280,7 +284,8 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
         linkTitle: String? = nil,
         linkURL: URL? = nil,
         isPinned: Bool = false,
-        expiresAtString: String? = nil
+        expiresAtString: String? = nil,
+        mustRead: Bool = false
     ) {
         guard let publishedAt = SHCAnnouncementDateParser.date(from: publishedAtString) else {
             return nil
@@ -295,7 +300,8 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
             linkTitle: linkTitle,
             linkURL: linkURL,
             isPinned: isPinned,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            mustRead: mustRead
         )
     }
 
@@ -305,7 +311,7 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, message, publishedAt, level, linkTitle, linkURL, isPinned, expiresAt
+        case id, title, message, publishedAt, level, linkTitle, linkURL, isPinned, expiresAt, mustRead
     }
 
     public init(from decoder: Decoder) throws {
@@ -317,6 +323,7 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
         linkTitle = try container.decodeIfPresent(String.self, forKey: .linkTitle)
         linkURL = try container.decodeIfPresent(URL.self, forKey: .linkURL)
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        mustRead = try container.decodeIfPresent(Bool.self, forKey: .mustRead) ?? false
 
         let publishedAtString = try container.decode(String.self, forKey: .publishedAt)
         guard let parsedPublishedAt = SHCAnnouncementDateParser.date(from: publishedAtString) else {
@@ -345,6 +352,7 @@ public struct SHCAnnouncementItem: Identifiable, Codable, Hashable, Sendable {
         try container.encodeIfPresent(linkTitle, forKey: .linkTitle)
         try container.encodeIfPresent(linkURL, forKey: .linkURL)
         try container.encode(isPinned, forKey: .isPinned)
+        try container.encode(mustRead, forKey: .mustRead)
         if let expiresAt {
             try container.encode(SHCAnnouncementDateParser.string(from: expiresAt), forKey: .expiresAt)
         }
@@ -376,6 +384,13 @@ private struct SHCFAQItemsResponse: Decodable {
     var faqItems: [SHCHelpFAQItem]?
     var faq: [SHCHelpFAQItem]?
     var items: [SHCHelpFAQItem]?
+}
+
+/// 仅用于判断远程公告是否显式提供了 `mustRead`。
+/// 字段缺失时为 nil，合并时继承本地同 id 条目的值。
+private struct SHCRemoteMustReadFlag: Decodable {
+    let id: String
+    let mustRead: Bool?
 }
 // MARK: - Help Center Configuration
 
@@ -472,6 +487,9 @@ public final class SHCHelpCenterManager {
     public private(set) var faqItems: [SHCHelpFAQItem] = []
     public private(set) var lastViewedPublishedAt: Date = .distantPast
     public private(set) var readAnnouncementIDs: Set<String> = []
+    /// 已通过强制确认弹窗确认过的公告 id。与 `readAnnouncementIDs` 分开存储：
+    /// 已读可能来自进入帮助中心点开或「全部标为已读」，确认只来自确认弹窗。
+    public private(set) var acknowledgedMustReadAnnouncementIDs: Set<String> = []
     public private(set) var supportURL: URL?
     public private(set) var appleID: String = ""
     // 颜色锁定值：configure 显式传入时生效；nil = 实时跟随 EDSTheme 主题。
@@ -492,13 +510,19 @@ public final class SHCHelpCenterManager {
     private var defaults: UserDefaults = .standard
     private var storageKey = "SwiftHelpCenter.SHCHelpCenter.lastViewedPublishedAt"
     private var announcementStorageKey = "SwiftHelpCenter.SHCHelpCenter.readAnnouncementIDs"
+    private var mustReadAcknowledgementStorageKey =
+        "SwiftHelpCenter.SHCHelpCenter.mustReadAcknowledgedAnnouncementIDs"
+    /// 每个 App 启动周期最多自动弹一次确认弹窗。远程晚到的 mustRead 留到下次启动。
+    private(set) var didPresentMustReadPromptThisLaunch = false
     private var remoteAnnouncementsURL: URL?
     private var remoteVersionSupplementURL: URL?
     private var remoteFAQURL: URL?
     private var didFetchRemoteAnnouncements = false
     private var didFetchRemoteVersionSupplements = false
     private var didFetchRemoteFAQItems = false
-    private var isConfigured = false
+    /// 本次启动的远程公告拉取是否已结束（成功或失败）。
+    private(set) var didCompleteRemoteAnnouncementsFetch = false
+    public private(set) var isConfigured = false
     private var checkedAppStoreAppleID: String?
 
     private let trainingVideoStore = SHCTrainingVideoStore()
@@ -536,6 +560,8 @@ public final class SHCHelpCenterManager {
         self.didFetchRemoteAnnouncements = false
         self.didFetchRemoteVersionSupplements = false
         self.didFetchRemoteFAQItems = false
+        self.didCompleteRemoteAnnouncementsFetch = false
+        self.didPresentMustReadPromptThisLaunch = false
         self.supportURL = configuration.supportURL
         self.appleID = configuration.appleID
         self.accentColorOverride = configuration.accentColor
@@ -543,6 +569,12 @@ public final class SHCHelpCenterManager {
         self.defaults = configuration.defaults
         self.isConfigured = true
         self.readAnnouncementIDs = Set(configuration.defaults.stringArray(forKey: resolvedAnnouncementStorageKey) ?? [])
+        self.mustReadAcknowledgementStorageKey = Self.mustReadAcknowledgementKey(
+            forAnnouncementStorageKey: resolvedAnnouncementStorageKey
+        )
+        self.acknowledgedMustReadAnnouncementIDs = Set(
+            configuration.defaults.stringArray(forKey: mustReadAcknowledgementStorageKey) ?? []
+        )
 
         if let storedDate = configuration.defaults.object(forKey: storageKey) as? Date {
             lastViewedPublishedAt = storedDate
@@ -577,6 +609,17 @@ public final class SHCHelpCenterManager {
 
     public var hasUnreadContent: Bool {
         hasUnreadUpdates || hasUnreadAnnouncements
+    }
+
+    /// 启动后需要强制展示、且用户尚未确认的公告。已过期公告不参与。
+    public var pendingMustReadAnnouncements: [SHCAnnouncementItem] {
+        visibleAnnouncements.filter {
+            $0.mustRead && !acknowledgedMustReadAnnouncementIDs.contains($0.id)
+        }
+    }
+
+    public var hasPendingMustReadAnnouncements: Bool {
+        !pendingMustReadAnnouncements.isEmpty
     }
 
     /// Whether the help center entry should draw the user's attention.
@@ -681,11 +724,70 @@ public final class SHCHelpCenterManager {
         markAllAnnouncementsAsRead()
     }
 
+    /// 统一定义确认状态的存储键，与公告已读键一一对应。
+    nonisolated static func mustReadAcknowledgementKey(forAnnouncementStorageKey storageKey: String) -> String {
+        "\(storageKey).mustReadAcknowledged"
+    }
+
+    /// 用户点击「我已知晓」后调用：记录确认并同时标记已读。
+    /// 传入 `items` 以精确确认弹窗中展示过的公告；不传则确认当前全部 pending。
+    public func acknowledgeMustReadAnnouncements(_ items: [SHCAnnouncementItem]? = nil) {
+        guard isConfigured else { return }
+        let targets = (items ?? pendingMustReadAnnouncements).filter {
+            $0.mustRead && !acknowledgedMustReadAnnouncementIDs.contains($0.id)
+        }
+        guard !targets.isEmpty else { return }
+
+        acknowledgedMustReadAnnouncementIDs.formUnion(targets.map(\.id))
+        saveAcknowledgedMustReadAnnouncementIDs()
+        for item in targets {
+            markAsRead(item)
+        }
+    }
+
+    /// 同步领取本次启动的待展示公告：只有第一个调用方会拿到结果，
+    /// 避免多窗口同时弹出。返回 nil 表示已弹过或没有待确认公告。
+    public func consumeMustReadPromptIfNeeded() -> [SHCAnnouncementItem]? {
+        guard isConfigured, !didPresentMustReadPromptThisLaunch else { return nil }
+        let pending = pendingMustReadAnnouncements
+        guard !pending.isEmpty else { return nil }
+        didPresentMustReadPromptThisLaunch = true
+        return pending
+    }
+
+    /// 视图出现时调用：若配置了远程公告且尚未拉取，最多等待 `timeout`
+    /// 让本地与远程 mustRead 合并展示，然后领取本次启动的待展示公告。
+    public func prepareMustReadPromptIfNeeded(
+        timeout: Duration = .seconds(5)
+    ) async -> [SHCAnnouncementItem]? {
+        guard isConfigured, !didPresentMustReadPromptThisLaunch else { return nil }
+
+        if remoteAnnouncementsURL != nil, !didCompleteRemoteAnnouncementsFetch {
+            await waitForRemoteAnnouncementsFetch(timeout: timeout)
+        }
+
+        return consumeMustReadPromptIfNeeded()
+    }
+
+    /// 等待 `configure` 触发的远程公告拉取结束，避免本地 mustRead 先弹、
+    /// 远程 mustRead 晚到后被「每次启动只弹一次」吞掉。超时就用现有数据。
+    private func waitForRemoteAnnouncementsFetch(timeout: Duration) async {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+
+        while !didCompleteRemoteAnnouncementsFetch, ContinuousClock.now < deadline {
+            if Task.isCancelled { return }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
     public func resetReadState() {
         defaults.removeObject(forKey: storageKey)
         defaults.removeObject(forKey: announcementStorageKey)
+        defaults.removeObject(forKey: mustReadAcknowledgementStorageKey)
         lastViewedPublishedAt = .distantPast
         readAnnouncementIDs = []
+        acknowledgedMustReadAnnouncementIDs = []
+        didPresentMustReadPromptThisLaunch = false
     }
 
     /// 刷新会影响帮助中心入口状态的远程内容。配置完成后会自动调用一次，
@@ -708,10 +810,16 @@ public final class SHCHelpCenterManager {
 
     /// 从 `remoteAnnouncementsURL` 拉取公告 JSON，并与本地公告按 id 合并。
     public func fetchRemoteAnnouncements() async {
-        guard let remoteAnnouncementsURL else { return }
+        guard let remoteAnnouncementsURL else {
+            didCompleteRemoteAnnouncementsFetch = true
+            return
+        }
 
         isLoadingRemoteAnnouncements = true
-        defer { isLoadingRemoteAnnouncements = false }
+        defer {
+            isLoadingRemoteAnnouncements = false
+            didCompleteRemoteAnnouncementsFetch = true
+        }
 
         do {
             let (data, response) = try await URLSession.shared.data(from: remoteAnnouncementsURL)
@@ -720,7 +828,12 @@ public final class SHCHelpCenterManager {
                 return
             }
             let remoteItems = try JSONDecoder().decode([SHCAnnouncementItem].self, from: data)
-            announcements = Self.mergedAnnouncements(local: announcements, remote: remoteItems)
+            let mustReadOverrides = Self.remoteMustReadOverrides(from: data)
+            announcements = Self.mergedAnnouncements(
+                local: announcements,
+                remote: remoteItems,
+                mustReadOverrides: mustReadOverrides
+            )
         } catch {
             // Remote announcements are optional; local announcements remain available on failure.
         }
@@ -795,6 +908,13 @@ public final class SHCHelpCenterManager {
         defaults.set(Array(readAnnouncementIDs), forKey: announcementStorageKey)
     }
 
+    private func saveAcknowledgedMustReadAnnouncementIDs() {
+        defaults.set(
+            Array(acknowledgedMustReadAnnouncementIDs),
+            forKey: mustReadAcknowledgementStorageKey
+        )
+    }
+
     private nonisolated static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
         let left = versionComponents(lhs)
         let right = versionComponents(rhs)
@@ -839,7 +959,7 @@ public final class SHCHelpCenterManager {
         return links
     }
 
-    private static func sortedAnnouncements(_ items: [SHCAnnouncementItem]) -> [SHCAnnouncementItem] {
+    private nonisolated static func sortedAnnouncements(_ items: [SHCAnnouncementItem]) -> [SHCAnnouncementItem] {
         items.sorted {
             if $0.isPinned != $1.isPinned {
                 return $0.isPinned && !$1.isPinned
@@ -848,13 +968,35 @@ public final class SHCHelpCenterManager {
         }
     }
 
-    private static func mergedAnnouncements(
+    /// 提取远程 JSON 中显式提供的 `mustRead`。缺失的 id 不出现在结果里，
+    /// 合并时由本地同 id 条目继承，避免远程旧文件误清本地强制标记。
+    nonisolated static func remoteMustReadOverrides(from data: Data) -> [String: Bool] {
+        guard let flags = try? JSONDecoder().decode([SHCRemoteMustReadFlag].self, from: data) else {
+            return [:]
+        }
+        var overrides: [String: Bool] = [:]
+        for flag in flags {
+            if let mustRead = flag.mustRead {
+                overrides[flag.id] = mustRead
+            }
+        }
+        return overrides
+    }
+
+    nonisolated static func mergedAnnouncements(
         local: [SHCAnnouncementItem],
-        remote: [SHCAnnouncementItem]
+        remote: [SHCAnnouncementItem],
+        mustReadOverrides: [String: Bool] = [:]
     ) -> [SHCAnnouncementItem] {
         var byID = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
         for item in remote {
-            byID[item.id] = item
+            var merged = item
+            if let override = mustReadOverrides[item.id] {
+                merged.mustRead = override
+            } else if let localItem = byID[item.id] {
+                merged.mustRead = localItem.mustRead
+            }
+            byID[item.id] = merged
         }
         return sortedAnnouncements(Array(byID.values))
     }
@@ -2092,7 +2234,7 @@ private struct SHCUnreadDot: View {
     }
 }
 
-private struct SHCUnreadBadge: View {
+struct SHCUnreadBadge: View {
     let text: String
     let color: Color
 

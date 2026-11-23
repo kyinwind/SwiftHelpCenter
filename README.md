@@ -42,7 +42,7 @@ SwiftHelpCenter 可以帮你少造一套重复轮子。
 https://github.com/kyinwind/SwiftHelpCenter
 ```
 
-版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.6`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.6` 时请在提交后创建并推送 `0.2.6` tag。
+版本规则建议选择 **Up to Next Major Version**，起始版本填写 `0.2.7`。Swift Package 的正式版本由 Git tag 决定，所以发布 `0.2.7` 时请在提交后创建并推送 `0.2.7` tag。
 
 ---
 
@@ -103,6 +103,19 @@ SHCHelpNavigationLink(title: "帮助中心")
 SHCHelpCenterWindowPresenter.shared.show()
 SHCFeedbackWindowPresenter.shared.show()
 ```
+
+**4. 挂载必读公告确认弹窗**
+
+如果公告标记了 `mustRead: true`，需要在根视图挂载确认弹窗。它会在启动后强制展示所有待确认公告，用户点「我已知晓」后记录确认，之后不再自动弹出：
+
+```swift
+WindowGroup {
+    ContentView()
+        .SHCMustReadAnnouncementPrompt()
+}
+```
+
+不使用 `mustRead` 公告的宿主可以不挂载，行为与升级前完全一致。
 
 ### 数据模型
 
@@ -172,6 +185,51 @@ SHCAnnouncementItem(
 ```
 
 公告会显示在帮助中心顶部、快速入口之前。入口红点会同时响应未读公告、未读版本更新和 App Store 可升级版本。
+
+**必须确认的公告（mustRead）**
+
+默认情况下公告只是「进帮助中心自己看」。给公告设置 `mustRead: true` 后，它会变成启动后必须确认的公告：
+
+- `mustRead: false`（缺省）：行为不变，只在帮助中心展示。
+- `mustRead: true`：启动后若未确认且未过期，强制弹出正式确认窗口，用户必须点「我已知晓」才能关闭。
+- 确认后永久不再自动弹（跨启动、跨升级），同时标记为已读；公告仍留在帮助中心，可随时查看。
+- 已过期（`expiresAt` 已过）的必读公告直接跳过。
+- 多条待确认公告会在同一个弹窗里按置顶/发布时间列出，一次确认。
+- 每次 App 启动最多自动弹一次；远程公告若晚到，留到下次启动再弹。
+- 用户自己进帮助中心点开公告不等于确认，未确认仍会在下次启动弹出。
+- 公告 `id` 就是确认状态的标识，改动 `id` 会被视为一条新公告重新弹出。
+
+本地注入：
+
+```swift
+SHCAnnouncementItem(
+    id: "migration-2026-11",
+    title: "数据迁移说明",
+    message: "从本版本开始，旧版数据会自动迁移到新格式。",
+    publishedAtString: "2026-11-23",
+    level: .critical,
+    mustRead: true
+)
+```
+
+远程 JSON 同样支持 `"mustRead": true`：
+
+```json
+[
+  {
+    "id": "migration-2026-11",
+    "title": "数据迁移说明",
+    "message": "从本版本开始，旧版数据会自动迁移到新格式。",
+    "publishedAt": "2026-11-23",
+    "level": "critical",
+    "mustRead": true
+  }
+]
+```
+
+远程公告按 `id` 覆盖本地条目：远程显式写了 `mustRead` 时以远程为准；没写则继承本地同 id 的值，避免远程旧文件误清本地强制标记。显式 `"mustRead": false` 可以关闭同 id 的强制确认。远程拉取失败时本次启动不弹，下次启动拉取成功后再处理。
+
+确认状态保存在 `<storageKey>.mustReadAcknowledged`，与已读状态分开；`resetReadState()` 会一并清除。
 
 远程公告 JSON 支持放在 GitHub Raw、自己的网站或任意可访问的 HTTPS 地址：
 
